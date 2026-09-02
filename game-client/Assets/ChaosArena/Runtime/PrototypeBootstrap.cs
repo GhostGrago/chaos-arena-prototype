@@ -405,7 +405,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.4 — MATCH & WEAPONS PASS", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.5 — FIRING FIX & CAMERA PASS", titleStyle);
             for (int i = 0; i < fighters.Count; i++)
             {
                 Fighter fighter = fighters[i];
@@ -428,7 +428,7 @@ namespace ChaosArena
             }
 
             GUI.Label(new Rect(24f, Screen.height - 62f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
-            GUI.Label(new Rect(24f, Screen.height - 38f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  Collect weapons  •  R rematch");
+            GUI.Label(new Rect(24f, Screen.height - 38f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  Collect weapons  •  auto-rematch, R restarts now");
         }
     }
 }

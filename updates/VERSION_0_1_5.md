@@ -59,6 +59,17 @@ Date: 2026-09-02
 - `-chaosSmokeTest` 通过：`CHAOS_ARENA_014_ASSERTIONS_PASS`、`CHAOS_ARENA_SMOKE_READY`、`CHAOS_ARENA_SMOKE_PASS`，无异常。
 - 新增的开火回归断言与护盾存在断言随烟雾一并执行通过。
 
+## 0.1.5 试玩后的调整（2026-09-02）
+
+用户确认开火修复、镜头、自动重开和护盾表现均符合预期，只要求延长保护时间：
+
+- 出界重生保护 0.9s → **1.2s**（`Fighter.RespawnProtectionSeconds`）。
+- 开局/重赛保护 0.7s → **0.9s**（`Fighter.RoundStartProtectionSeconds`）。
+- 两个时长改为具名常量，便于后续调参。
+- 顺带修正HUD标题仍显示 0.1.4 的问题，底部提示改为说明自动重开。
+
+护盾最后 0.35 秒闪烁的窗口不变，在 1.2s 下比例仍然合适。
+
 ## 仍需试玩确认
 
 构建与烟雾通过**不等于**手感通过。以下全部未经人工验证：

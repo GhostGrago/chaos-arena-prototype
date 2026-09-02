@@ -7,6 +7,10 @@ namespace ChaosArena
         public const float MaxHealth = 100f;
         public const int StartingLives = 3;
 
+        // Time a fighter is immune after a ring-out. Long enough to reorient before re-entering the fight.
+        public const float RespawnProtectionSeconds = 1.2f;
+        public const float RoundStartProtectionSeconds = 0.9f;
+
         [SerializeField] private string displayName = "Fighter";
         [SerializeField] private Color fighterColor = Color.white;
 
@@ -54,7 +58,7 @@ namespace ChaosArena
             }
 
             Respawn(true);
-            protectedUntil = Time.time + 0.9f;
+            protectedUntil = Time.time + RespawnProtectionSeconds;
             return false;
         }
 
@@ -62,7 +66,7 @@ namespace ChaosArena
         {
             gameObject.SetActive(true);
             Lives = StartingLives;
-            protectedUntil = Time.time + 0.7f;
+            protectedUntil = Time.time + RoundStartProtectionSeconds;
             Respawn(true);
         }
 
