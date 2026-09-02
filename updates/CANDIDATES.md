@@ -6,13 +6,13 @@ This file contains only unfinished feature candidates. The original detailed bac
 
 ## Highest priority
 
-### U-009 — Ledge recovery
+### U-009 — 已在0.1.7完成：抓边回场
 
-Add one readable, learnable recovery opportunity near arena edges.
+判定窗口、1.25秒挂边上限和0.55秒冷却仍需真人试玩确认手感。
 
-### U-011 — Remaining offscreen guidance
+### U-011 — 已在0.1.7完成：屏外方向指示
 
-Prototype 0.1.4 completed arena-anchored local-player soft follow. A clear local-player offscreen/ring-out direction indicator remains unfinished; two-character dynamic framing was rejected for the future per-client multiplayer camera direction.
+本机玩家离开画面时在屏幕边缘显示方向标记。
 
 ## Carried over from 0.1.4 playtest (balance, not yet approved)
 
@@ -24,9 +24,9 @@ All five pellets connect at contact range for 17.5 internal damage and 6.25 base
 
 `Explode` skips the owner entirely, so firing a rocket at an adjacent enemy carries no risk. Decide whether this stays forgiving or gains self-knockback for risk/reward.
 
-### U-017 — Ring-out margin and rocket detonation on one-way platforms
+### U-017 — 已在0.1.7完成：出界边界收紧与火箭穿台
 
-Ring-out triggers only past |x|>16 while platforms end near ±9.5, creating a long invisible fall. Rockets also detonate on the underside of one-way platforms. Tune alongside U-009.
+边界收紧到 |x|>13 / y<-6，弹丸可从下方穿过单向平台。收紧幅度是否过严仍需试玩。
 
 ## Requested 2026-09-02 — visual and level pass (record only, not approved)
 
@@ -73,9 +73,9 @@ Ring-out triggers only past |x|>16 while platforms end near ±9.5, creating a lo
 
 用户希望这是一款多模式派对对战游戏。抽象几何身份使得任何模式都无需在设定上自圆其说。以下按建议顺序排列，**一次只做一个**，每个都要单独调到好玩。
 
-### U-023 — 角色形态改为基本立体
+### U-023 — 已在0.1.7完成：角色几何形态
 
-把现有胶囊人替换为立方体/球体/四面体/圆柱体四种形态，加发光"眼"指示朝向。这是几何战士身份落地的第一步，也是所有模式的共同基础，应先于任何新模式。
+立方体/球体/四面体/圆柱体四种形态与朝向眼已落地，物理胶囊未改。
 
 ### U-024 — 生化感染模式
 
@@ -113,6 +113,7 @@ Create a separate moon/low-gravity ruleset.
 - U-012–U-013: shooting feedback, AI behavior, hit impact and air-combat tuning.
 - U-008: immediate-start stock match, final elimination, winner and rematch loop.
 - U-010: Pulse SMG, Scatter Blaster and Rocket Launcher fixed pickup loop.
+- 0.1.7: 几何战士形态(U-023)、抓边回场(U-009)、屏外指示(U-011)、出界边界与火箭穿台(U-017)。
 - 0.1.6: ArenaBuilder extraction (U-021), six-platform asymmetric layout (U-020 static part), 1-3 bot free-for-all, hitstop and camera shake (U-022 partial), and the direction-neutral visual pass (U-019).
 - 0.1.5: muzzle-flash collider fix (projectiles self-destructed at the barrel), auto-rematch, respawn protection shield and balanced auto-zoom camera.
 - U-011 partial: arena-anchored local-player soft-follow camera; offscreen direction guidance remains active.

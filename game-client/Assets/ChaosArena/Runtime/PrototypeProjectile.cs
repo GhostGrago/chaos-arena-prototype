@@ -54,6 +54,11 @@ namespace ChaosArena
             Fighter target = other.GetComponent<Fighter>();
             if (other.GetComponent<PrototypeProjectile>() != null || other.GetComponent<WeaponPickup>() != null ||
                 other.GetComponent<CombatVfx>() != null) return;
+
+            // Projectiles pass up through one-way platforms exactly as fighters do. Without this a rocket
+            // fired upward detonates on the underside of a platform the shot should have gone through.
+            OneWayPlatform oneWay = other.GetComponent<OneWayPlatform>();
+            if (oneWay != null && transform.position.y < oneWay.Top) return;
             if (target == owner)
             {
                 return;
