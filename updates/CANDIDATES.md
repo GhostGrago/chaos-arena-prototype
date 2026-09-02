@@ -6,9 +6,9 @@ This file contains only unfinished feature candidates. The original detailed bac
 
 ## Highest priority
 
-### U-009 — 已在0.1.7完成：抓边回场
+### U-009 — 抓边回场（0.1.7实现，0.1.8撤回，重新开放）
 
-判定窗口、1.25秒挂边上限和0.55秒冷却仍需真人试玩确认手感。
+⚠️ **重做前必须先解决人机行为**：`BotController` 没有挂边感知，人机会在边缘反复「抓住→超时→坠落→再抓住」，看起来卡死。恢复实现见 `v0.1.7` 标签，但必须配套AI的挂边状态与主动脱手决策，否则问题重现。
 
 ### U-011 — 已在0.1.7完成：屏外方向指示
 
@@ -113,6 +113,7 @@ Create a separate moon/low-gravity ruleset.
 - U-012–U-013: shooting feedback, AI behavior, hit impact and air-combat tuning.
 - U-008: immediate-start stock match, final elimination, winner and rematch loop.
 - U-010: Pulse SMG, Scatter Blaster and Rocket Launcher fixed pickup loop.
+- 0.1.8: Bloom后处理与霓虹材质、按形态发光边框、竞技场霓虹化、按武器区分的手持造型、asmdef URP引用修复。
 - 0.1.7: 几何战士形态(U-023)、抓边回场(U-009)、屏外指示(U-011)、出界边界与火箭穿台(U-017)。
 - 0.1.6: ArenaBuilder extraction (U-021), six-platform asymmetric layout (U-020 static part), 1-3 bot free-for-all, hitstop and camera shake (U-022 partial), and the direction-neutral visual pass (U-019).
 - 0.1.5: muzzle-flash collider fix (projectiles self-destructed at the barrel), auto-rematch, respawn protection shield and balanced auto-zoom camera.

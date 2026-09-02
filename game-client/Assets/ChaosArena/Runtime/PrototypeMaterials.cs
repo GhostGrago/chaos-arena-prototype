@@ -43,6 +43,22 @@ namespace ChaosArena
             renderer.sharedMaterial = instance;
         }
 
+        /// <summary>
+        /// Unlit material driven past 1.0 so the bloom pass catches it. This is what makes edge strips and
+        /// accents read as emitting light rather than just being brightly painted.
+        /// </summary>
+        public static void AssignNeon(Renderer renderer, Color color, float intensity = 3.2f)
+        {
+            Material instance = new(GetTemplate(true))
+            {
+                name = "Prototype Neon (Runtime)",
+                enableInstancing = true
+            };
+            SetMaterialColor(instance, color * intensity);
+            renderer.sharedMaterial = instance;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
         public static void SetColor(Renderer renderer, Color color)
         {
             SetMaterialColor(renderer.material, color);

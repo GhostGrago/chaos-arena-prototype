@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace ChaosArena
 {
@@ -68,6 +70,7 @@ namespace ChaosArena
             BuildArenaDetails();
             ConfigureEnvironment();
             BuildLighting();
+            BuildPostProcessing();
         }
 
         private static void CreatePlatform(PlatformDefinition definition)
@@ -88,14 +91,22 @@ namespace ChaosArena
             Color edgeColor = new(0.28f, 0.85f, 1f);
             foreach (int side in new[] { -1, 1 })
             {
-                CreateVisualPrimitive($"{definition.Name} Edge {side}", PrimitiveType.Cube,
+                GameObject lip = CreateVisualPrimitive($"{definition.Name} Edge {side}", PrimitiveType.Cube,
                     new Vector3(definition.Position.x + side * (halfWidth - 0.18f), top + 0.03f, -0.2f),
                     new Vector3(0.36f, 0.09f, definition.Scale.z * 0.92f), edgeColor, true);
+                PrototypeMaterials.AssignNeon(lip.GetComponent<Renderer>(), edgeColor, 3.4f);
             }
 
-            CreateVisualPrimitive(definition.Name + " Front Trim", PrimitiveType.Cube,
+            GameObject trim = CreateVisualPrimitive(definition.Name + " Front Trim", PrimitiveType.Cube,
                 definition.Position + new Vector3(0f, definition.Scale.y * 0.32f, -definition.Scale.z * 0.52f),
-                new Vector3(definition.Scale.x * 0.96f, 0.08f, 0.12f), new Color(0.12f, 0.5f, 0.7f), true);
+                new Vector3(definition.Scale.x * 0.96f, 0.06f, 0.12f), new Color(0.2f, 0.7f, 1f), true);
+            PrototypeMaterials.AssignNeon(trim.GetComponent<Renderer>(), new Color(0.2f, 0.7f, 1f), 2.4f);
+
+            // Under-glow strip so platforms read as lit hardware rather than grey slabs.
+            GameObject underGlow = CreateVisualPrimitive(definition.Name + " Under Glow", PrimitiveType.Cube,
+                definition.Position + new Vector3(0f, -definition.Scale.y * 0.52f, -definition.Scale.z * 0.3f),
+                new Vector3(definition.Scale.x * 0.8f, 0.05f, 0.1f), new Color(1f, 0.35f, 0.75f), true);
+            PrototypeMaterials.AssignNeon(underGlow.GetComponent<Renderer>(), new Color(1f, 0.35f, 0.75f), 2f);
         }
 
         private static void BuildArenaDetails()
@@ -107,8 +118,9 @@ namespace ChaosArena
 
             for (int i = -4; i <= 4; i++)
             {
-                CreateVisualPrimitive("Deck Light " + i, PrimitiveType.Cube, new Vector3(i * 2f, -0.62f, -1.58f),
-                    new Vector3(0.5f, 0.12f, 0.08f), new Color(1f, 0.48f, 0.12f), true);
+                GameObject deckLight = CreateVisualPrimitive("Deck Light " + i, PrimitiveType.Cube,
+                    new Vector3(i * 2f, -0.62f, -1.58f), new Vector3(0.5f, 0.12f, 0.08f), new Color(1f, 0.48f, 0.12f), true);
+                PrototypeMaterials.AssignNeon(deckLight.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.14f), 2.6f);
             }
         }
 
@@ -180,6 +192,35 @@ namespace ChaosArena
             rim.intensity = 1.15f;
             rim.color = new Color(0.55f, 0.85f, 1f);
             rimObject.transform.rotation = Quaternion.Euler(-12f, 18f, 0f);
+        }
+
+        /// <summary>
+        /// Global bloom volume. Neon materials are pushed above 1.0 on purpose; without this pass they would
+        /// just look like flat bright paint instead of emitting light.
+        /// </summary>
+        private static void BuildPostProcessing()
+        {
+            VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
+
+            Bloom bloom = profile.Add<Bloom>(true);
+            bloom.threshold.Override(0.85f);
+            bloom.intensity.Override(1.35f);
+            bloom.scatter.Override(0.72f);
+            bloom.tint.Override(new Color(0.75f, 0.88f, 1f));
+
+            Vignette vignette = profile.Add<Vignette>(true);
+            vignette.intensity.Override(0.28f);
+            vignette.smoothness.Override(0.45f);
+
+            ColorAdjustments grade = profile.Add<ColorAdjustments>(true);
+            grade.contrast.Override(14f);
+            grade.saturation.Override(12f);
+
+            GameObject volumeObject = new("Global Volume");
+            Volume volume = volumeObject.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 1f;
+            volume.sharedProfile = profile;
         }
 
         public static GameObject CreateVisualPrimitive(string name, PrimitiveType type, Vector3 position,

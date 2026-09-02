@@ -26,20 +26,8 @@ namespace ChaosArena
         private PrototypeWeaponProfile weapon = PrototypeWeaponProfile.Carbine;
         private int ammo = -1;
 
-        // Ledge recovery. Being launched off the stage used to be unrecoverable; this gives one clear,
-        // learnable save. Hanging is time-limited and has a cooldown so an edge cannot be camped.
-        private const float LedgeReach = 0.62f;
-        private const float LedgeGrabDepth = 1.1f;
-        private const float MaxHangSeconds = 1.25f;
-        private const float RegrabCooldown = 0.55f;
-        private bool hanging;
-        private float hangEndsAt;
-        private float nextGrabAllowedAt;
-        private Vector3 hangPosition;
-
         public int Facing => facing;
         public bool IsGrounded { get; private set; }
-        public bool IsHanging => hanging;
         public PrototypeWeaponId WeaponId => weapon.Id;
         public string WeaponName => weapon.Name;
         public int Ammo => ammo;
@@ -85,8 +73,6 @@ namespace ChaosArena
             {
                 jumpsUsed = 0;
             }
-
-            if (UpdateLedgeHang()) return;
 
             if (dropQueued && currentSupport != null)
             {
@@ -137,98 +123,6 @@ namespace ChaosArena
                 }
             }
         }
-
-        /// <summary>
-        /// Runs the hang state and looks for a new grab. Returns true while hanging, which suspends normal
-        /// movement, gravity and firing for that step.
-        /// </summary>
-        private bool UpdateLedgeHang()
-        {
-            if (hanging)
-            {
-                body.linearVelocity = Vector3.zero;
-                transform.position = hangPosition;
-
-                // Jump climbs off the ledge; dropping down or running out of time lets go.
-                if (jumpQueued)
-                {
-                    ReleaseLedge();
-                    body.linearVelocity = new Vector3(body.linearVelocity.x, jumpSpeed, 0f);
-                    jumpsUsed = 1;
-                    jumpQueued = false;
-                    return true;
-                }
-
-                if (dropQueued || Time.time >= hangEndsAt)
-                {
-                    ReleaseLedge();
-                    dropQueued = false;
-                    return true;
-                }
-
-                jumpQueued = false;
-                dropQueued = false;
-                return true;
-            }
-
-            if (IsGrounded || Time.time < nextGrabAllowedAt || body.linearVelocity.y > 0.2f) return false;
-
-            if (!TryFindLedge(transform.position, ownCollider.bounds.extents.y, out Vector3 grabPosition, out int grabSide))
-            {
-                return false;
-            }
-
-            hanging = true;
-            hangEndsAt = Time.time + MaxHangSeconds;
-            hangPosition = grabPosition;
-            transform.position = grabPosition;
-            body.linearVelocity = Vector3.zero;
-            jumpsUsed = 0;
-            facing = -grabSide;
-            return true;
-        }
-
-        /// <summary>
-        /// Pure ledge lookup, kept free of component state so the smoke test can verify the grab window
-        /// without running physics. Returns the hang position and which side of the platform was caught.
-        /// </summary>
-        public static bool TryFindLedge(Vector3 position, float halfHeight, out Vector3 hangPosition, out int side)
-        {
-            foreach (ArenaBuilder.PlatformDefinition platform in ArenaBuilder.Layout)
-            {
-                float top = platform.Top;
-                float head = position.y + halfHeight;
-
-                // The grab window sits just under the lip: head at or above it, body still below.
-                if (head < top - 0.15f || head > top + LedgeGrabDepth) continue;
-
-                float halfWidth = platform.Scale.x * 0.5f;
-                foreach (int candidate in StaticSides)
-                {
-                    float edgeX = platform.Position.x + candidate * halfWidth;
-                    float outward = (position.x - edgeX) * candidate;
-
-                    // Only from outside the platform, and only within arm's reach of the lip.
-                    if (outward < 0f || outward > LedgeReach) continue;
-
-                    hangPosition = new Vector3(edgeX + candidate * 0.34f, top - halfHeight + 0.28f, 0f);
-                    side = candidate;
-                    return true;
-                }
-            }
-
-            hangPosition = Vector3.zero;
-            side = 0;
-            return false;
-        }
-
-        private void ReleaseLedge()
-        {
-            hanging = false;
-            nextGrabAllowedAt = Time.time + RegrabCooldown;
-        }
-
-        private static readonly int[] StaticSides = { -1, 1 };
 
         private void ApplyAirGravityTuning()
         {

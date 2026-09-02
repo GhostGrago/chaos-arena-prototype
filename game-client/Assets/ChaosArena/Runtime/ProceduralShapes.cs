@@ -80,6 +80,103 @@ namespace ChaosArena
             return body;
         }
 
+        /// <summary>
+        /// Glowing edge frame that traces a solid's silhouette. This is what turns a plain primitive into a
+        /// piece of lit hardware: the bloom pass catches the bars and the shape reads as a neon wireframe
+        /// wrapped around a matte core.
+        /// </summary>
+        public static void CreateEdgeFrame(FighterShape shape, Transform parent, Color color)
+        {
+            const float thickness = 0.055f;
+            switch (shape)
+            {
+                case FighterShape.Cube:
+                {
+                    const float h = 0.52f;
+                    foreach (int y in Signs)
+                    foreach (int z in Signs)
+                        CreateBar(parent, new Vector3(-h, y * h, z * h), new Vector3(h, y * h, z * h), thickness, color);
+                    foreach (int x in Signs)
+                    foreach (int z in Signs)
+                        CreateBar(parent, new Vector3(x * h, -h, z * h), new Vector3(x * h, h, z * h), thickness, color);
+                    foreach (int x in Signs)
+                    foreach (int y in Signs)
+                        CreateBar(parent, new Vector3(x * h, y * h, -h), new Vector3(x * h, y * h, h), thickness, color);
+                    break;
+                }
+
+                case FighterShape.Tetrahedron:
+                {
+                    Vector3[] corners = TetrahedronCorners(0.53f);
+                    for (int a = 0; a < corners.Length; a++)
+                    {
+                        for (int b = a + 1; b < corners.Length; b++)
+                        {
+                            CreateBar(parent, corners[a], corners[b], thickness, color);
+                        }
+                    }
+                    break;
+                }
+
+                case FighterShape.Sphere:
+                    CreateRing(parent, 0.52f, 16, Vector3.forward, thickness, color);
+                    CreateRing(parent, 0.52f, 16, Vector3.up, thickness, color);
+                    break;
+
+                case FighterShape.Cylinder:
+                    CreateRing(parent, 0.52f, 16, Vector3.up, thickness, color, 0.52f);
+                    CreateRing(parent, 0.52f, 16, Vector3.up, thickness, color, -0.52f);
+                    foreach (int x in Signs)
+                    {
+                        CreateBar(parent, new Vector3(x * 0.52f, -0.52f, 0f), new Vector3(x * 0.52f, 0.52f, 0f), thickness, color);
+                    }
+                    break;
+            }
+        }
+
+        private static readonly int[] Signs = { -1, 1 };
+
+        private static Vector3[] TetrahedronCorners(float radius) => new[]
+        {
+            new Vector3(1f, 1f, 1f).normalized * radius,
+            new Vector3(1f, -1f, -1f).normalized * radius,
+            new Vector3(-1f, 1f, -1f).normalized * radius,
+            new Vector3(-1f, -1f, 1f).normalized * radius
+        };
+
+        private static void CreateRing(Transform parent, float radius, int segments, Vector3 axis, float thickness,
+            Color color, float offset = 0f)
+        {
+            Quaternion orient = Quaternion.FromToRotation(Vector3.up, axis);
+            for (int i = 0; i < segments; i++)
+            {
+                float a0 = i / (float)segments * Mathf.PI * 2f;
+                float a1 = (i + 1) / (float)segments * Mathf.PI * 2f;
+                Vector3 p0 = orient * new Vector3(Mathf.Cos(a0) * radius, offset, Mathf.Sin(a0) * radius);
+                Vector3 p1 = orient * new Vector3(Mathf.Cos(a1) * radius, offset, Mathf.Sin(a1) * radius);
+                CreateBar(parent, p0, p1, thickness, color);
+            }
+        }
+
+        /// <summary>A thin glowing cube stretched between two local-space points.</summary>
+        public static GameObject CreateBar(Transform parent, Vector3 from, Vector3 to, float thickness, Color color)
+        {
+            GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bar.name = "Edge";
+            bar.transform.SetParent(parent, false);
+            StripCollider(bar);
+
+            Vector3 direction = to - from;
+            bar.transform.localPosition = (from + to) * 0.5f;
+            bar.transform.localRotation = direction.sqrMagnitude > 0.000001f
+                ? Quaternion.FromToRotation(Vector3.forward, direction.normalized)
+                : Quaternion.identity;
+            bar.transform.localScale = new Vector3(thickness, thickness, direction.magnitude);
+
+            PrototypeMaterials.AssignNeon(bar.GetComponent<Renderer>(), color, 3f);
+            return bar;
+        }
+
         private static void StripCollider(GameObject target)
         {
             Collider bodyCollider = target.GetComponent<Collider>();

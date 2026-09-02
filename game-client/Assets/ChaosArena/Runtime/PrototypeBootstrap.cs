@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace ChaosArena
 {
@@ -113,10 +114,9 @@ namespace ChaosArena
             }
 
             AssertGeometricBodies();
-            AssertLedgeRecovery();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_017_ASSERTIONS_PASS: geometry bodies, ledge recovery, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_018_ASSERTIONS_PASS: neon bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -136,6 +136,17 @@ namespace ChaosArena
                 {
                     throw new System.InvalidOperationException("Fighter is missing its facing eye.");
                 }
+
+                Transform frame = fighter.transform.Find("Visual Root/Edge Frame");
+                if (frame == null || frame.childCount < 4)
+                {
+                    throw new System.InvalidOperationException("Fighter is missing its neon edge frame.");
+                }
+
+                if (fighter.transform.Find("Visual Root/Weapon Mount") == null)
+                {
+                    throw new System.InvalidOperationException("Fighter is missing its weapon mount.");
+                }
             }
 
             GameObject probe = ProceduralShapes.CreateBody(FighterShape.Tetrahedron, "Tetra Probe");
@@ -145,34 +156,6 @@ namespace ChaosArena
                 throw new System.InvalidOperationException("Generated tetrahedron mesh is malformed.");
             }
             Destroy(probe);
-        }
-
-        /// <summary>
-        /// A fighter dropping just outside a platform lip must find a ledge, and one out in open air must not.
-        /// Without this the only recovery move in the game could silently stop working.
-        /// </summary>
-        private void AssertLedgeRecovery()
-        {
-            const float halfHeight = 0.9f;
-            ArenaBuilder.PlatformDefinition platform = ArenaBuilder.Layout[1];
-            float edgeX = platform.Position.x + platform.Scale.x * 0.5f;
-
-            Vector3 atLip = new(edgeX + 0.3f, platform.Top - halfHeight + 0.2f, 0f);
-            if (!FighterMotor.TryFindLedge(atLip, halfHeight, out _, out int side) || side != 1)
-            {
-                throw new System.InvalidOperationException("Ledge grab did not engage at a platform lip.");
-            }
-
-            Vector3 openAir = new(edgeX + 6f, platform.Top - halfHeight + 0.2f, 0f);
-            if (FighterMotor.TryFindLedge(openAir, halfHeight, out _, out _))
-            {
-                throw new System.InvalidOperationException("Ledge grab engaged in open air.");
-            }
-
-            if (RingOutSide <= platform.Position.x + platform.Scale.x * 0.5f)
-            {
-                throw new System.InvalidOperationException("Ring-out boundary must sit outside the platforms.");
-            }
         }
 
         /// <summary>Bot count must drive who actually takes part in the match.</summary>
@@ -444,7 +427,8 @@ namespace ChaosArena
             Fighter fighter = fighterObject.AddComponent<Fighter>();
             fighterObject.AddComponent<FighterMotor>();
             FighterVisual visual = fighterObject.AddComponent<FighterVisual>();
-            BuildFighterModel(fighterObject.transform, visual, color, shape);
+            WeaponVisual weaponVisual = fighterObject.AddComponent<WeaponVisual>();
+            BuildFighterModel(fighterObject.transform, visual, weaponVisual, color, shape);
             fighterObject.AddComponent<ProtectionShield>();
             fighter.Initialize(fighterName, color, spawn);
             allFighters.Add(fighter);
@@ -456,7 +440,7 @@ namespace ChaosArena
         /// unchanged, so this is purely a visual identity change. Distinct solids give the most separable
         /// silhouettes in a four-way brawl, and the eye is the only facing cue an abstract shape has.
         /// </summary>
-        private static void BuildFighterModel(Transform fighter, FighterVisual visual, Color tint, FighterShape shape)
+        private static void BuildFighterModel(Transform fighter, FighterVisual visual, WeaponVisual weaponVisual, Color tint, FighterShape shape)
         {
             GameObject visualRootObject = new("Visual Root");
             visualRootObject.transform.SetParent(fighter, false);
@@ -473,7 +457,13 @@ namespace ChaosArena
                 _ => Vector3.one * 1.02f
             };
             Renderer bodyRenderer = bodyObject.GetComponent<Renderer>();
-            PrototypeMaterials.AssignSurface(bodyRenderer, tint, 0.05f, 0.28f);
+            PrototypeMaterials.AssignSurface(bodyRenderer, tint, 0.12f, 0.34f);
+
+            // Glowing wireframe traced over the solid so the shape reads as lit hardware, not a grey block.
+            GameObject frameObject = new("Edge Frame");
+            frameObject.transform.SetParent(root, false);
+            frameObject.transform.localScale = bodyObject.transform.localScale * 1.03f;
+            ProceduralShapes.CreateEdgeFrame(shape, frameObject.transform, Color.Lerp(tint, Color.white, 0.45f));
 
             GameObject eyeObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             eyeObject.name = "Eye";
@@ -482,9 +472,13 @@ namespace ChaosArena
             Collider eyeCollider = eyeObject.GetComponent<Collider>();
             eyeCollider.enabled = false;
             Destroy(eyeCollider);
-            PrototypeMaterials.Assign(eyeObject.GetComponent<Renderer>(), new Color(0.95f, 1f, 1f), true);
+            PrototypeMaterials.AssignNeon(eyeObject.GetComponent<Renderer>(), new Color(0.85f, 0.98f, 1f), 4f);
+
+            GameObject mountObject = new("Weapon Mount");
+            mountObject.transform.SetParent(root, false);
 
             visual.Bind(root, bodyObject.transform, eyeObject.transform, bodyRenderer);
+            weaponVisual.Bind(mountObject.transform);
         }
 
         private static GameObject CreateModelPart(string name, PrimitiveType type, Transform parent, Vector3 position, Vector3 scale, Color color)
@@ -511,8 +505,14 @@ namespace ChaosArena
             camera.fieldOfView = 39f;
             camera.nearClipPlane = 0.3f;
             camera.farClipPlane = 110f;
-            camera.backgroundColor = new Color(0.04f, 0.055f, 0.09f);
+            camera.backgroundColor = new Color(0.03f, 0.04f, 0.07f);
             camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.allowHDR = true;
+
+            // Bloom only exists if the camera actually runs the post-processing stack.
+            UniversalAdditionalCameraData cameraData = camera.GetUniversalAdditionalCameraData();
+            cameraData.renderPostProcessing = true;
+            cameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
             cameraObject.transform.position = new Vector3(0f, 4.6f, -29f);
             cameraObject.transform.LookAt(new Vector3(0f, 2.25f, 0.5f));
             cameraObject.AddComponent<ArenaCameraFollow>().SetTarget(localPlayer);
@@ -524,7 +524,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.7 — GEOMETRY FIGHTERS & LEDGE RECOVERY", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.8 — NEON GEOMETRY & WEAPON MODELS", titleStyle);
 
             DrawFighterPanel(player, 24f, 52f);
             for (int i = 1; i < roster.Count; i++)
@@ -545,7 +545,7 @@ namespace ChaosArena
             DrawOffscreenIndicator();
 
             GUI.Label(new Rect(24f, Screen.height - 84f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
-            GUI.Label(new Rect(24f, Screen.height - 60f, 1100f, 26f), "A/D move  •  Space double-jump / climb ledge  •  S drop through  •  J fire  •  R restart now");
+            GUI.Label(new Rect(24f, Screen.height - 60f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  R restart now");
             GUI.Label(new Rect(24f, Screen.height - 36f, 1100f, 26f),
                 $"1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})");
         }
