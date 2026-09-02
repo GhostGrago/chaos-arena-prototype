@@ -49,7 +49,7 @@ Prototype 0.1.6: asymmetric multi-level arena, 1-3 bot free-for-all, impact feel
 
 ## Unknown
 
-- Worldbuilding/art direction is not selected.
+- Worldbuilding/art direction is selected: abstract geometric "Geometry Fighters" (D-019). Character forms and per-mode visual language are not yet implemented.
 - Exact networking/Steam integration is not selected.
 - Original project name is not selected.
 - Final health-to-knockback curve is not selected; Prototype 0.1 starts at 1.0x–3.5x.

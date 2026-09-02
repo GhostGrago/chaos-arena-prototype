@@ -125,3 +125,10 @@
 - Decision: Feature requests and tuning ideas continue to accumulate in `updates/CANDIDATES.md` instead of being implemented immediately. When the candidate set forms a coherent, testable version and the user approves it, Codex and Claude may collaborate on that version using the local project files as the primary working copy. Before and after an iteration, compare the local branch, worktree, version documents, and tag with GitHub `origin/main`.
 - Rationale: Batching changes keeps each version understandable and testable. A local-first workflow lets both assistants share the same complete project state, while an explicit Git comparison prevents either a stale cloud copy or uncommitted local work from being silently overwritten.
 - Consequences: Never blindly pull, push, merge, or overwrite when local and remote histories differ. First inspect status, commits, tags, and diffs; preserve uncommitted work; then choose the intended direction. Only the tested, documented version should be synchronized to GitHub. At this decision point, local `main`, remote `main`, and peeled tag `v0.1.4` all resolve to commit `63cbbe66ca09d864e8a86517f1506361eef1c407`.
+
+## D-019 — 世界观定为抽象几何"几何战士"
+
+- Date: 2026-09-02
+- Decision: 放弃原先三个叙事型备选（太空废品回收队 / 浮空岛魔法快递 / 微缩实验室事故），改为抽象几何身份。玩家角色为基本立体（立方体、球体、四面体、圆柱体），各自配色，以发光"眼"指示朝向。工作名 **几何战士 / Geometry Fighters**，基础击退淘汰模式称 **几何角斗场**。
+- Rationale: 项目目标是承载多种规则完全不同的模式（生化感染、旋转平台、逃杀、强力武器）。叙事型世界观要求每个模式在故事中自圆其说，与多模式目标直接冲突；抽象几何没有这个包袱。同时抽象几何在本项目上有四个叠加优势：开发与建模成本最低；与现有全 primitive 的工程完全对齐，占位美术直接升格为正式方向；角色层面不再需要任何第三方素材，消除授权风险；几何图元剪影区分度最高，4人混战中辨认自己最容易。状态（感染、增益、濒死）可用形体崩坏与材质变化直接表达，不依赖UI图标。
+- Consequences: `GAME_VISION.md` 的待选方向段落被替换为已选定方向、视觉语言与状态表达约定。美术批次的阻塞项 U-018 解除。已知风险是纯抽象容易显得冷淡，缓解手段是**幽默来自动作而非造型**——依靠夸张的挤压拉伸、翻滚与濒死抖动建立人格，`FighterVisual` 已具备这一层。正式定名前必须在 Steam 与商标层面查重，中英文分别检查。
