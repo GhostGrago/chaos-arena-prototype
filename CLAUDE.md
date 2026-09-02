@@ -78,7 +78,7 @@
 
 每个版本批次的固定步骤：
 
-1. 开工前按"重要边界"最后一条比对工作树、`main`、`origin/main` 和版本标签。
+1. 开工前看一眼 `git status` 和改动文件即可；不必每次深入排查GitHub，别在这上面花时间。
 2. 小范围改代码。
 3. 运行Unity构建和 `-chaosSmokeTest`。
 4. 同步更新 `PROJECT_STATE.md`、`NEXT_TASKS.md`、`updates/VERSION_*.md` 和 `updates/CANDIDATES.md`。
@@ -87,8 +87,8 @@
 ## 远程仓库
 
 - `https://github.com/GhostGrago/chaos-arena-prototype`（**private**），默认分支 `main`。
-- 本地文件是唯一事实来源；云端用于版本追溯，每个批次结束后必须与本地一致。
-- Codex与Claude会改同一批本地文件：**谁改完谁立刻提交**，另一方开工前先比对状态，避免未提交改动被静默覆盖。
+- **本地文件是唯一事实来源**；云端只是版本记录，推送前看一下改动文件就够了。
+- Codex与Claude不会同时工作（一方上传时另一方休息），因此不需要处理并发冲突；谁改完谁提交即可。
 - 0.1.1–0.1.3从未进入git，无法重建；`v0.1.4` 是可追溯历史的起点。
 
 ## 修改约定
