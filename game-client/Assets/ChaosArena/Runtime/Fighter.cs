@@ -41,8 +41,12 @@ namespace ChaosArena
         {
             if (IsEliminated || IsProtected) return;
             Health = Mathf.Max(0f, Health - damage);
-            body.AddForce(baseKnockback * KnockbackMultiplier, ForceMode.VelocityChange);
+            Vector3 impulse = baseKnockback * KnockbackMultiplier;
+            body.AddForce(impulse, ForceMode.VelocityChange);
             GetComponent<FighterVisual>()?.OnHit(Danger01);
+
+            // Heavier launches freeze and shake harder, so a fight-ending hit feels different from chip damage.
+            CombatFeel.Impact(Mathf.InverseLerp(1.5f, 12f, impulse.magnitude));
         }
 
         public bool LoseLife()

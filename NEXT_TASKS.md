@@ -4,8 +4,9 @@ Updated: 2026-09-01
 
 ## P0 — Current
 
-- Playtest Prototype 0.1.5 and first confirm bullets visibly travel, hit and knock back.
-- Record feedback on the 2.5s auto-rematch, the protection shield ring, and the new follow/auto-zoom camera weights.
+- Playtest Prototype 0.1.6 on the new six-platform layout with 1, 2 and 3 bots.
+- Re-test balance from scratch: the new arena invalidates the 0.1.4/0.1.5 weapon and ring-out conclusions.
+- Record feedback on hitstop length, camera shake, rim light readability and parallax strength.
 - Convert concrete feedback into tuning or bug-fix tasks.
 
 ## P1 — Next build candidates
@@ -19,6 +20,7 @@ Updated: 2026-09-01
 
 - Generated and validated the Claude handoff entry file and full engineering report for Prototype 0.1.4.
 - Prototype 0.1.4: final-stock match ending, winner/rematch loop, arena-anchored local-player soft-follow camera, and three fixed limited-ammo weapon pickups.
+- Prototype 0.1.6: ArenaBuilder extraction, six-platform asymmetric arena, 1-3 bot free-for-all, hitstop/shake and procedural visual pass.
 - Prototype 0.1.5: muzzle-flash collider fix, auto-rematch, protection shield and balanced auto-zoom camera.
 - Prototype 0.1.3: tactical AI, stronger impact, clearer effects and improved air-combat timing.
 - Prototype 0.1.2: one-way platforms, non-colliding fighters, difficulty presets and layered shooting feedback.

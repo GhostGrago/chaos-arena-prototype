@@ -36,7 +36,7 @@ Ring-out triggers only past |x|>16 while platforms end near ±9.5, creating a lo
 
 `GAME_VISION.md` 的A太空废品回收队 / B浮空岛魔法快递 / C微缩实验室事故仍未选择。在方向确定前投入正式美术，产出很可能作废：配色、造型、材质语言和场景母题都由方向决定。建议先做这个决定，再开美术批次。**这是U-019和U-021的阻塞项。**
 
-### U-019 — 不依赖美术方向的可读性视觉升级（低风险，可先做）
+### U-019 — 程序化部分已在0.1.6完成；贴图部分留待0.1.7
 
 不需要任何第三方素材或方向决定，全部仍是程序化生成：
 
@@ -48,7 +48,7 @@ Ring-out triggers only past |x|>16 while platforms end near ±9.5, creating a lo
 
 ⚠️ 风险：背景越复杂，角色和子弹越容易被淹没。派对格斗游戏的美术必须服从可读性，**任何背景升级都要同步验证角色轮廓与弹丸是否仍然一眼可见**。
 
-### U-020 — 竞技场结构复杂化（玩法收益 > 贴图收益）
+### U-020 — 竞技场结构复杂化（静态布局已在0.1.6完成，移动平台仍未做）
 
 当前只有1块主平台+3块对称静止单向平台，路线单一。按 `GAME_VISION.md` 已列方向：
 
@@ -61,7 +61,7 @@ Ring-out triggers only past |x|>16 while platforms end near ±9.5, creating a lo
 
 ⚠️ 技术前置：`OneWayPlatform` 目前缓存静态 `Top` 高度，`FighterMotor.UpdateOneWayCollisions` 每帧按该高度切换 `Physics.IgnoreCollision`。**平台一旦会移动，这套逻辑必须先改**，否则穿透判定会错乱；移动平台带动角色也需要额外处理。
 
-### U-021 — 把竞技场构建从 PrototypeBootstrap 拆出（U-020的前置重构）
+### U-021 — 已在0.1.6完成：ArenaBuilder 已拆出
 
 `PrototypeBootstrap.cs` 已被交接报告标记为职责过多、联网前必须拆分。它现在同时负责建场景、建角色、比赛生命周期、HUD和烟雾断言。**在往里继续堆关卡内容之前**，应先抽出 `ArenaBuilder` 和数据化的关卡定义，否则关卡越复杂，重赛/对象生命周期出错的概率越高，后续联网重构成本也越大。
 
@@ -85,5 +85,6 @@ Create a separate moon/low-gravity ruleset.
 - U-012–U-013: shooting feedback, AI behavior, hit impact and air-combat tuning.
 - U-008: immediate-start stock match, final elimination, winner and rematch loop.
 - U-010: Pulse SMG, Scatter Blaster and Rocket Launcher fixed pickup loop.
+- 0.1.6: ArenaBuilder extraction (U-021), six-platform asymmetric layout (U-020 static part), 1-3 bot free-for-all, hitstop and camera shake (U-022 partial), and the direction-neutral visual pass (U-019).
 - 0.1.5: muzzle-flash collider fix (projectiles self-destructed at the barrel), auto-rematch, respawn protection shield and balanced auto-zoom camera.
 - U-011 partial: arena-anchored local-player soft-follow camera; offscreen direction guidance remains active.

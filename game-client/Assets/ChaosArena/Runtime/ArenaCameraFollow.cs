@@ -57,6 +57,18 @@ namespace ChaosArena
 
             Vector3 desired = new(focus.x, focus.y + CameraHeightAboveFocus, BaseDistance - pullBack);
             transform.position = Vector3.SmoothDamp(transform.position, desired, ref velocity, 0.28f, 40f);
+
+            // Shake is applied after smoothing so the damping does not swallow the impulse.
+            float shake = CombatFeel.ShakeAmount;
+            if (shake > 0.0005f)
+            {
+                float time = Time.unscaledTime * 38f;
+                transform.position += new Vector3(
+                    (Mathf.PerlinNoise(time, 0f) - 0.5f) * 2f * shake,
+                    (Mathf.PerlinNoise(0f, time) - 0.5f) * 2f * shake,
+                    0f);
+            }
+
             transform.rotation = Quaternion.LookRotation(focus - transform.position);
         }
     }

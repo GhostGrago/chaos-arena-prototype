@@ -42,7 +42,9 @@ namespace ChaosArena
 
         private void Update()
         {
-            if (target == null)
+            // With 1-3 bots the roster changes between matches, and an eliminated rival is deactivated rather
+            // than destroyed, so an inactive target must stop the bot instead of steering it at a corpse.
+            if (target == null || !target.gameObject.activeInHierarchy)
             {
                 motor.SetCommands(0f, false, false, false);
                 return;

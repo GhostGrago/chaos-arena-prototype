@@ -6,18 +6,40 @@ namespace ChaosArena
 {
     public sealed class PrototypeBootstrap : MonoBehaviour
     {
-        private readonly List<Fighter> fighters = new();
+        public const int MaxBots = 3;
+
+        // Every fighter that can ever take part. Bots outside the current roster are deactivated, not destroyed,
+        // so switching bot count never rebuilds objects mid-session.
+        private readonly List<Fighter> allFighters = new();
+        private readonly List<Fighter> roster = new();
+
+        private static readonly Vector3[] SpawnPoints =
+        {
+            new(-6.5f, 1.6f, 0f),
+            new(6.5f, 1.6f, 0f),
+            new(-2.2f, 1.6f, 0f),
+            new(2.2f, 1.6f, 0f)
+        };
+
+        private static readonly Color[] FighterColors =
+        {
+            new(0.2f, 0.7f, 1f),
+            new(1f, 0.35f, 0.25f),
+            new(0.45f, 0.95f, 0.4f),
+            new(0.85f, 0.5f, 1f)
+        };
+
         private GUIStyle titleStyle;
         private GUIStyle hudStyle;
         private GUIStyle resultStyle;
         private float smokeTestExitTime = -1f;
-        private BotController botBrain;
         private Fighter player;
-        private Fighter bot;
         private Fighter winner;
         private bool matchEnded;
         private float matchStartedAt;
         private float matchDuration;
+        private int botCount = 1;
+        private BotDifficulty difficulty = BotDifficulty.Easy;
 
         // Playtest builds restart on their own so a session never parks on a result screen waiting for input.
         private const float AutoRematchDelay = 2.5f;
@@ -25,54 +47,116 @@ namespace ChaosArena
 
         private void Awake()
         {
-            BuildArena();
-            player = CreateFighter("PLAYER", new Color(0.2f, 0.7f, 1f), new Vector3(-4f, 1.4f, 0f));
-            bot = CreateFighter("BOT", new Color(1f, 0.35f, 0.25f), new Vector3(4f, 1.4f, 0f));
+            ArenaBuilder.Build();
+            CombatFeel.Ensure();
+
+            player = CreateFighter("PLAYER", FighterColors[0], SpawnPoints[0]);
             player.gameObject.AddComponent<HumanController>();
-            BotController brain = bot.gameObject.AddComponent<BotController>();
-            brain.SetTarget(player.transform);
-            brain.SetDifficulty(BotDifficulty.Easy);
-            botBrain = brain;
-            Physics.IgnoreCollision(player.GetComponent<Collider>(), bot.GetComponent<Collider>(), true);
+
+            for (int i = 0; i < MaxBots; i++)
+            {
+                Fighter botFighter = CreateFighter($"BOT {i + 1}", FighterColors[i + 1], SpawnPoints[i + 1]);
+                botFighter.gameObject.AddComponent<BotController>().SetDifficulty(difficulty);
+            }
+
+            // Fighters pass through each other; only attacks connect.
+            for (int a = 0; a < allFighters.Count; a++)
+            {
+                for (int b = a + 1; b < allFighters.Count; b++)
+                {
+                    Physics.IgnoreCollision(allFighters[a].GetComponent<Collider>(),
+                        allFighters[b].GetComponent<Collider>(), true);
+                }
+            }
+
             SetupCamera(player.transform);
-            matchStartedAt = Time.time;
+            StartMatch();
 
             if (Application.isBatchMode && System.Environment.GetCommandLineArgs().Contains("-chaosSmokeTest"))
             {
-                RunPrototype014SmokeAssertions();
+                RunSmokeAssertions();
                 smokeTestExitTime = Time.realtimeSinceStartup + 2f;
-                Debug.Log("CHAOS_ARENA_SMOKE_READY: arena, player, bot, camera, and physics initialized.");
+                Debug.Log("CHAOS_ARENA_SMOKE_READY: arena, player, bots, camera, and physics initialized.");
             }
-
         }
 
-        private void RunPrototype014SmokeAssertions()
+        private void RunSmokeAssertions()
         {
             if (WeaponPickup.All.Count != 3) throw new System.InvalidOperationException("Expected three weapon pickups.");
             if (FindAnyObjectByType<ArenaCameraFollow>() == null) throw new System.InvalidOperationException("Missing local-player camera follow.");
-
-            AssertProjectileSurvivesItsOwnMuzzleFlash();
-            if (player.GetComponent<ProtectionShield>() == null || bot.GetComponent<ProtectionShield>() == null)
+            if (ArenaBuilder.Layout.Count(definition => definition.OneWay) < 5)
             {
-                throw new System.InvalidOperationException("Both fighters need a respawn protection shield.");
+                throw new System.InvalidOperationException("Expected at least five one-way platforms.");
             }
 
-            bool first = bot.LoseLife();
-            bool second = bot.LoseLife();
-            bool third = bot.LoseLife();
-            if (first || second || !third || bot.Lives != 0) throw new System.InvalidOperationException("Stock elimination contract failed.");
-            EndMatch(bot);
+            AssertProjectileSurvivesItsOwnMuzzleFlash();
+            foreach (Fighter fighter in allFighters)
+            {
+                if (fighter.GetComponent<ProtectionShield>() == null)
+                {
+                    throw new System.InvalidOperationException("Every fighter needs a respawn protection shield.");
+                }
+            }
+
+            AssertBotCountRoster();
+            AssertFreeForAllElimination();
+            Debug.Log("CHAOS_ARENA_016_ASSERTIONS_PASS: pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+        }
+
+        /// <summary>Bot count must drive who actually takes part in the match.</summary>
+        private void AssertBotCountRoster()
+        {
+            for (int count = 1; count <= MaxBots; count++)
+            {
+                SetBotCount(count);
+                if (roster.Count != count + 1)
+                {
+                    throw new System.InvalidOperationException($"Roster should hold {count + 1} fighters for {count} bots.");
+                }
+
+                for (int i = 0; i < allFighters.Count; i++)
+                {
+                    bool shouldBeActive = i <= count;
+                    if (allFighters[i].gameObject.activeSelf != shouldBeActive)
+                    {
+                        throw new System.InvalidOperationException("Fighters outside the roster must be deactivated.");
+                    }
+                }
+            }
+
+            SetBotCount(1);
+        }
+
+        /// <summary>Last fighter standing wins, and a rematch restores the whole roster.</summary>
+        private void AssertFreeForAllElimination()
+        {
+            SetBotCount(2);
+            Fighter firstBot = roster[1];
+            Fighter secondBot = roster[2];
+
+            for (int i = 0; i < Fighter.StartingLives; i++) firstBot.LoseLife();
+            if (!firstBot.IsEliminated) throw new System.InvalidOperationException("Stock elimination contract failed.");
+            if (GetSoleSurvivor() != null) throw new System.InvalidOperationException("Match must continue while two fighters remain.");
+
+            for (int i = 0; i < Fighter.StartingLives; i++) secondBot.LoseLife();
+            Fighter survivor = GetSoleSurvivor();
+            if (survivor != player) throw new System.InvalidOperationException("Sole survivor contract failed.");
+
+            EndMatch(survivor);
             if (!matchEnded || winner != player) throw new System.InvalidOperationException("Winner contract failed.");
 
             StartMatch();
-            if (matchEnded || player.Lives != Fighter.StartingLives || bot.Lives != Fighter.StartingLives ||
-                !player.gameObject.activeInHierarchy || !bot.gameObject.activeInHierarchy ||
-                player.GetComponent<FighterMotor>().WeaponId != PrototypeWeaponId.Carbine ||
-                bot.GetComponent<FighterMotor>().WeaponId != PrototypeWeaponId.Carbine)
+            if (matchEnded) throw new System.InvalidOperationException("Rematch should clear the ended state.");
+            foreach (Fighter fighter in roster)
             {
-                throw new System.InvalidOperationException("Rematch reset contract failed.");
+                if (fighter.Lives != Fighter.StartingLives || !fighter.gameObject.activeInHierarchy ||
+                    fighter.GetComponent<FighterMotor>().WeaponId != PrototypeWeaponId.Carbine)
+                {
+                    throw new System.InvalidOperationException("Rematch reset contract failed.");
+                }
             }
-            Debug.Log("CHAOS_ARENA_014_ASSERTIONS_PASS: pickups, elimination, winner, and rematch reset verified.");
+
+            SetBotCount(1);
         }
 
         /// <summary>
@@ -117,42 +201,98 @@ namespace ChaosArena
 
             if (!matchEnded)
             {
-                foreach (Fighter fighter in fighters)
-                {
-                    if (!fighter.gameObject.activeInHierarchy) continue;
-                    Vector3 position = fighter.transform.position;
-                    if (position.y < -7f || Mathf.Abs(position.x) > 16f)
-                    {
-                        fighter.GetComponent<FighterMotor>().ResetWeapon();
-                        bool eliminated = fighter.LoseLife();
-                        if (eliminated)
-                        {
-                            EndMatch(fighter);
-                            break;
-                        }
-                    }
-                }
+                CheckRingOuts();
+                RetargetBots();
             }
 
-            if (matchEnded && autoRematchAt > 0f && Time.time >= autoRematchAt)
-            {
-                StartMatch();
-            }
+            if (matchEnded && autoRematchAt > 0f && Time.time >= autoRematchAt) StartMatch();
 
-            if (Input.GetKeyDown(KeyCode.R))
-            {
-                StartMatch();
-            }
-
-            if (Input.GetKeyDown(KeyCode.F1)) botBrain.SetDifficulty(BotDifficulty.Easy);
-            if (Input.GetKeyDown(KeyCode.F2)) botBrain.SetDifficulty(BotDifficulty.Normal);
-            if (Input.GetKeyDown(KeyCode.F3)) botBrain.SetDifficulty(BotDifficulty.Hard);
+            if (Input.GetKeyDown(KeyCode.R)) StartMatch();
+            if (Input.GetKeyDown(KeyCode.Alpha1)) SetBotCount(1);
+            if (Input.GetKeyDown(KeyCode.Alpha2)) SetBotCount(2);
+            if (Input.GetKeyDown(KeyCode.Alpha3)) SetBotCount(3);
+            if (Input.GetKeyDown(KeyCode.F1)) SetDifficulty(BotDifficulty.Easy);
+            if (Input.GetKeyDown(KeyCode.F2)) SetDifficulty(BotDifficulty.Normal);
+            if (Input.GetKeyDown(KeyCode.F3)) SetDifficulty(BotDifficulty.Hard);
         }
 
-        private void EndMatch(Fighter loser)
+        private void CheckRingOuts()
+        {
+            foreach (Fighter fighter in roster)
+            {
+                if (!fighter.gameObject.activeInHierarchy) continue;
+                Vector3 position = fighter.transform.position;
+                if (position.y >= -7f && Mathf.Abs(position.x) <= 16f) continue;
+
+                fighter.GetComponent<FighterMotor>().ResetWeapon();
+                if (!fighter.LoseLife()) continue;
+
+                Fighter survivor = GetSoleSurvivor();
+                if (survivor != null)
+                {
+                    EndMatch(survivor);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Returns the winner once exactly one roster fighter is still alive, otherwise null.</summary>
+        private Fighter GetSoleSurvivor()
+        {
+            Fighter survivor = null;
+            int alive = 0;
+            foreach (Fighter fighter in roster)
+            {
+                if (fighter.IsEliminated) continue;
+                alive++;
+                survivor = fighter;
+            }
+
+            return alive == 1 ? survivor : null;
+        }
+
+        /// <summary>Each bot chases whichever living rival is closest, so a free-for-all does not gang up on the player.</summary>
+        private void RetargetBots()
+        {
+            foreach (Fighter fighter in roster)
+            {
+                BotController brain = fighter.GetComponent<BotController>();
+                if (brain == null || fighter.IsEliminated) continue;
+
+                Fighter nearest = null;
+                float nearestDistance = float.MaxValue;
+                foreach (Fighter other in roster)
+                {
+                    if (other == fighter || other.IsEliminated || !other.gameObject.activeInHierarchy) continue;
+                    float distance = (other.transform.position - fighter.transform.position).sqrMagnitude;
+                    if (distance >= nearestDistance) continue;
+                    nearestDistance = distance;
+                    nearest = other;
+                }
+
+                brain.SetTarget(nearest != null ? nearest.transform : null);
+            }
+        }
+
+        private void SetBotCount(int count)
+        {
+            botCount = Mathf.Clamp(count, 1, MaxBots);
+            StartMatch();
+        }
+
+        private void SetDifficulty(BotDifficulty newDifficulty)
+        {
+            difficulty = newDifficulty;
+            foreach (Fighter fighter in allFighters)
+            {
+                fighter.GetComponent<BotController>()?.SetDifficulty(difficulty);
+            }
+        }
+
+        private void EndMatch(Fighter matchWinner)
         {
             matchEnded = true;
-            winner = loser == player ? bot : player;
+            winner = matchWinner;
             matchDuration = Time.time - matchStartedAt;
             autoRematchAt = Time.time + AutoRematchDelay;
             SetCombatActive(false);
@@ -163,21 +303,34 @@ namespace ChaosArena
         {
             ClearProjectiles();
             WeaponPickup.ResetAll();
-            foreach (Fighter fighter in fighters)
+
+            roster.Clear();
+            for (int i = 0; i <= botCount; i++) roster.Add(allFighters[i]);
+
+            foreach (Fighter fighter in allFighters)
             {
-                fighter.ResetRound();
-                fighter.GetComponent<FighterMotor>().ResetWeapon();
+                if (roster.Contains(fighter))
+                {
+                    fighter.ResetRound();
+                    fighter.GetComponent<FighterMotor>().ResetWeapon();
+                }
+                else
+                {
+                    fighter.gameObject.SetActive(false);
+                }
             }
+
             winner = null;
             matchEnded = false;
             autoRematchAt = -1f;
             matchStartedAt = Time.time;
             SetCombatActive(true);
+            RetargetBots();
         }
 
         private void SetCombatActive(bool active)
         {
-            foreach (Fighter fighter in fighters)
+            foreach (Fighter fighter in roster)
             {
                 FighterMotor motor = fighter.GetComponent<FighterMotor>();
                 HumanController human = fighter.GetComponent<HumanController>();
@@ -222,106 +375,8 @@ namespace ChaosArena
             BuildFighterModel(fighterObject.transform, visual, color);
             fighterObject.AddComponent<ProtectionShield>();
             fighter.Initialize(fighterName, color, spawn);
-            fighters.Add(fighter);
+            allFighters.Add(fighter);
             return fighter;
-        }
-
-        private static void BuildArena()
-        {
-            Physics.gravity = new Vector3(0f, -22f, 0f);
-            Camera existingCamera = FindAnyObjectByType<Camera>();
-            if (existingCamera != null) Destroy(existingCamera.gameObject);
-
-            CreatePlatform("Main Platform", new Vector3(0f, -0.25f, 0f), new Vector3(19f, 1f, 3f), new Color(0.18f, 0.22f, 0.3f), false);
-            CreatePlatform("Left Platform", new Vector3(-6f, 3f, 0f), new Vector3(5f, 0.6f, 3f), new Color(0.25f, 0.3f, 0.4f), true);
-            CreatePlatform("Right Platform", new Vector3(6f, 3f, 0f), new Vector3(5f, 0.6f, 3f), new Color(0.25f, 0.3f, 0.4f), true);
-            CreatePlatform("Top Platform", new Vector3(0f, 5.5f, 0f), new Vector3(4.5f, 0.6f, 3f), new Color(0.32f, 0.37f, 0.48f), true);
-
-            WeaponPickup.Spawn(PrototypeWeaponProfile.PulseSmg, new Vector3(-6f, 4.05f, 0f));
-            WeaponPickup.Spawn(PrototypeWeaponProfile.ScatterBlaster, new Vector3(0f, 6.55f, 0f));
-            WeaponPickup.Spawn(PrototypeWeaponProfile.RocketLauncher, new Vector3(6f, 4.05f, 0f));
-
-            BuildBackground();
-            BuildArenaDetails();
-
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.28f, 0.38f, 0.52f);
-            RenderSettings.ambientEquatorColor = new Color(0.12f, 0.16f, 0.23f);
-            RenderSettings.ambientGroundColor = new Color(0.045f, 0.055f, 0.075f);
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.09f, 0.13f, 0.19f);
-            // Pushed out so the arena keeps its contrast when the camera pulls back near a ring-out edge.
-            RenderSettings.fogStartDistance = 32f;
-            RenderSettings.fogEndDistance = 76f;
-
-            GameObject lightObject = new("Key Light");
-            Light light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.35f;
-            light.color = new Color(1f, 0.88f, 0.72f);
-            lightObject.transform.rotation = Quaternion.Euler(45f, -35f, 0f);
-
-            GameObject fillObject = new("Cool Fill Light");
-            Light fill = fillObject.AddComponent<Light>();
-            fill.type = LightType.Directional;
-            fill.intensity = 0.65f;
-            fill.color = new Color(0.35f, 0.58f, 1f);
-            fillObject.transform.rotation = Quaternion.Euler(25f, 145f, 0f);
-        }
-
-        private static void CreatePlatform(string platformName, Vector3 position, Vector3 scale, Color color, bool oneWay)
-        {
-            GameObject platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            platform.name = platformName;
-            platform.transform.SetPositionAndRotation(position, Quaternion.identity);
-            platform.transform.localScale = scale;
-            PrototypeMaterials.Assign(platform.GetComponent<Renderer>(), color);
-            if (oneWay) platform.AddComponent<OneWayPlatform>();
-
-            CreateVisualPrimitive(platformName + " Front Trim", PrimitiveType.Cube,
-                position + new Vector3(0f, scale.y * 0.32f, -scale.z * 0.52f),
-                new Vector3(scale.x * 0.96f, 0.1f, 0.12f), new Color(0.16f, 0.62f, 0.82f), true);
-        }
-
-        private static void BuildArenaDetails()
-        {
-            Color support = new(0.08f, 0.11f, 0.16f);
-            CreateVisualPrimitive("Left Support", PrimitiveType.Cube, new Vector3(-6.5f, -2.6f, 0.8f), new Vector3(1.1f, 4f, 1.1f), support);
-            CreateVisualPrimitive("Right Support", PrimitiveType.Cube, new Vector3(6.5f, -2.6f, 0.8f), new Vector3(1.1f, 4f, 1.1f), support);
-            CreateVisualPrimitive("Underdeck", PrimitiveType.Cube, new Vector3(0f, -1.4f, 0.9f), new Vector3(14f, 1.25f, 1.1f), new Color(0.1f, 0.13f, 0.18f));
-
-            for (int i = -4; i <= 4; i++)
-            {
-                CreateVisualPrimitive("Deck Light " + i, PrimitiveType.Cube, new Vector3(i * 2f, -0.62f, -1.58f),
-                    new Vector3(0.5f, 0.12f, 0.08f), new Color(1f, 0.48f, 0.12f), true);
-            }
-        }
-
-        private static void BuildBackground()
-        {
-            CreateVisualPrimitive("Distant Sky Wall", PrimitiveType.Cube, new Vector3(0f, 8f, 28f),
-                new Vector3(75f, 30f, 1f), new Color(0.055f, 0.09f, 0.15f), true);
-
-            Color mountain = new(0.09f, 0.15f, 0.22f);
-            for (int i = -4; i <= 4; i++)
-            {
-                GameObject peak = CreateVisualPrimitive("Distant Peak " + i, PrimitiveType.Cube,
-                    new Vector3(i * 8f, -0.5f + Mathf.Abs(i % 2) * 1.2f, 19f + Mathf.Abs(i) * 0.6f),
-                    new Vector3(8f, 8f + Mathf.Abs(i % 3) * 3f, 4f), mountain);
-                peak.transform.rotation = Quaternion.Euler(0f, 0f, 45f);
-            }
-
-            Color tower = new(0.075f, 0.11f, 0.16f);
-            for (int i = -5; i <= 5; i++)
-            {
-                float height = 4f + Mathf.Repeat(i * 2.7f, 5f);
-                CreateVisualPrimitive("Skyline " + i, PrimitiveType.Cube, new Vector3(i * 4.5f, height * 0.5f - 2f, 12f + Mathf.Abs(i % 2) * 2f),
-                    new Vector3(3.2f, height, 2.6f), tower);
-            }
-
-            CreateVisualPrimitive("Distant Moon", PrimitiveType.Sphere, new Vector3(11f, 9.5f, 17f),
-                Vector3.one * 3.4f, new Color(0.85f, 0.9f, 1f), true);
         }
 
         private static void BuildFighterModel(Transform fighter, FighterVisual visual, Color tint)
@@ -363,24 +418,12 @@ namespace ChaosArena
             part.transform.SetParent(parent, false);
             part.transform.localPosition = position;
             part.transform.localScale = scale;
-            Collider collider = part.GetComponent<Collider>();
-            collider.enabled = false;
-            Destroy(collider);
-            PrototypeMaterials.Assign(part.GetComponent<Renderer>(), color);
+            Collider partCollider = part.GetComponent<Collider>();
+            partCollider.enabled = false;
+            Destroy(partCollider);
+            // Fighters stay matte so they read against the metallic platforms and the flat background.
+            PrototypeMaterials.AssignSurface(part.GetComponent<Renderer>(), color, 0.05f, 0.28f);
             return part;
-        }
-
-        private static GameObject CreateVisualPrimitive(string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color, bool unlit = false)
-        {
-            GameObject visual = GameObject.CreatePrimitive(type);
-            visual.name = name;
-            visual.transform.position = position;
-            visual.transform.localScale = scale;
-            Collider collider = visual.GetComponent<Collider>();
-            collider.enabled = false;
-            Destroy(collider);
-            PrototypeMaterials.Assign(visual.GetComponent<Renderer>(), color, unlit);
-            return visual;
         }
 
         private static void SetupCamera(Transform localPlayer)
@@ -391,10 +434,10 @@ namespace ChaosArena
             camera.orthographic = false;
             camera.fieldOfView = 39f;
             camera.nearClipPlane = 0.3f;
-            camera.farClipPlane = 90f;
-            camera.backgroundColor = new Color(0.055f, 0.07f, 0.11f);
+            camera.farClipPlane = 110f;
+            camera.backgroundColor = new Color(0.04f, 0.055f, 0.09f);
             camera.clearFlags = CameraClearFlags.SolidColor;
-            cameraObject.transform.position = new Vector3(0f, 4.6f, -27f);
+            cameraObject.transform.position = new Vector3(0f, 4.6f, -29f);
             cameraObject.transform.LookAt(new Vector3(0f, 2.25f, 0.5f));
             cameraObject.AddComponent<ArenaCameraFollow>().SetTarget(localPlayer);
         }
@@ -405,30 +448,39 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.5 — FIRING FIX & CAMERA PASS", titleStyle);
-            for (int i = 0; i < fighters.Count; i++)
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.6 — ARENA, BOTS & IMPACT PASS", titleStyle);
+
+            DrawFighterPanel(player, 24f, 52f);
+            for (int i = 1; i < roster.Count; i++)
             {
-                Fighter fighter = fighters[i];
-                float x = i == 0 ? 24f : Screen.width - 300f;
-                string identity = i == 1 && botBrain != null ? $"BOT — {botBrain.Difficulty.ToString().ToUpperInvariant()}" : fighter.DisplayName;
-                GUI.Label(new Rect(x, 52f, 280f, 28f), $"{identity}  LIVES {fighter.Lives}", hudStyle);
-                FighterMotor motor = fighter.GetComponent<FighterMotor>();
-                string ammoText = motor.Ammo < 0 ? "∞" : motor.Ammo.ToString();
-                GUI.Label(new Rect(x, 78f, 280f, 24f), $"{motor.WeaponName}  AMMO {ammoText}");
+                DrawFighterPanel(roster[i], Screen.width - 300f, 52f + (i - 1) * 52f);
             }
 
             if (matchEnded && winner != null)
             {
+                float restartIn = Mathf.Max(0f, autoRematchAt - Time.time);
                 GUI.Box(new Rect(Screen.width * 0.5f - 235f, Screen.height * 0.5f - 80f, 470f, 160f), "");
                 GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f - 62f, 440f, 55f),
                     $"{winner.DisplayName} WINS!", resultStyle);
-                float restartIn = Mathf.Max(0f, autoRematchAt - Time.time);
                 GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f + 2f, 440f, 35f),
                     $"MATCH {matchDuration:0.0}s   •   NEXT MATCH IN {restartIn:0.0}s", titleStyle);
             }
 
-            GUI.Label(new Rect(24f, Screen.height - 62f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
-            GUI.Label(new Rect(24f, Screen.height - 38f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  Collect weapons  •  auto-rematch, R restarts now");
+            GUI.Label(new Rect(24f, Screen.height - 84f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
+            GUI.Label(new Rect(24f, Screen.height - 60f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  R restart now");
+            GUI.Label(new Rect(24f, Screen.height - 36f, 1100f, 26f),
+                $"1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})");
+        }
+
+        private void DrawFighterPanel(Fighter fighter, float x, float y)
+        {
+            if (fighter == null) return;
+            string state = fighter.IsEliminated ? "OUT" : $"LIVES {fighter.Lives}";
+            GUI.Label(new Rect(x, y, 280f, 28f), $"{fighter.DisplayName}  {state}", hudStyle);
+            FighterMotor motor = fighter.GetComponent<FighterMotor>();
+            if (motor == null) return;
+            string ammoText = motor.Ammo < 0 ? "∞" : motor.Ammo.ToString();
+            GUI.Label(new Rect(x, y + 24f, 280f, 24f), $"{motor.WeaponName}  AMMO {ammoText}");
         }
     }
 }

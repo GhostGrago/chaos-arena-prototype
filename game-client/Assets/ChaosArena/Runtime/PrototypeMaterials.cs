@@ -8,6 +8,8 @@ namespace ChaosArena
         private const string LitResourcePath = "ChaosArenaMaterials/PrototypeLit";
         private const string UnlitResourcePath = "ChaosArenaMaterials/PrototypeUnlit";
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int MetallicId = Shader.PropertyToID("_Metallic");
+        private static readonly int SmoothnessId = Shader.PropertyToID("_Smoothness");
 
         private static Material litTemplate;
         private static Material unlitTemplate;
@@ -21,6 +23,23 @@ namespace ChaosArena
                 enableInstancing = true
             };
             SetMaterialColor(instance, color);
+            renderer.sharedMaterial = instance;
+        }
+
+        /// <summary>
+        /// Assigns a lit material with an explicit surface response. Separating metallic/smoothness per layer
+        /// is what stops platforms, fighters and background from all reading as the same flat plastic.
+        /// </summary>
+        public static void AssignSurface(Renderer renderer, Color color, float metallic, float smoothness)
+        {
+            Material instance = new(GetTemplate(false))
+            {
+                name = "Prototype Surface (Runtime)",
+                enableInstancing = true
+            };
+            SetMaterialColor(instance, color);
+            if (instance.HasProperty(MetallicId)) instance.SetFloat(MetallicId, Mathf.Clamp01(metallic));
+            if (instance.HasProperty(SmoothnessId)) instance.SetFloat(SmoothnessId, Mathf.Clamp01(smoothness));
             renderer.sharedMaterial = instance;
         }
 

@@ -16,7 +16,7 @@ Normal startup requires only this file and `NEXT_TASKS.md`. Historical evidence 
 
 ## Current phase
 
-Prototype 0.1.5: firing fix, auto-rematch, respawn protection shield and balanced follow camera.
+Prototype 0.1.6: asymmetric multi-level arena, 1-3 bot free-for-all, impact feel and procedural visual pass.
 
 ## Current status
 
@@ -33,6 +33,7 @@ Prototype 0.1.5: firing fix, auto-rematch, respawn protection shield and balance
 - Prototype 0.1.4 removes the sandbox's automatic stock refill: final stock loss stops combat, displays a winner, and supports immediate `R` rematch without a start countdown. It adds an arena-anchored camera that follows only the local player by a small clamped amount, plus fixed pickups for a 32-round Pulse SMG, 8-shot five-pellet Scatter Blaster, and 5-rocket explosive launcher. Build, dedicated match/reset assertions, smoke, and direct window rendering passed; balance remains subjective.
 - Claude continuation materials are current: root `CLAUDE.md` provides automatic startup guidance and `docs/2026-09-01_工程交接-Claude-report.md` contains the full reproducible engineering handoff.
 - Prototype 0.1.5 fixes the reported "sparks but no bullet" defect: combat VFX kept a live collider for the rest of the frame, so each projectile triggered against its own muzzle flash and destroyed itself at the barrel. Colliders are now disabled before being destroyed, projectiles ignore VFX, and a smoke assertion guards the regression. It also adds auto-rematch 2.5s after the final elimination, a bright rotating respawn-protection ring that only blinks as it expires, and a camera that balances the local fighter against the arena centre while pulling back automatically near ring-out edges. Build and smoke passed; feel is unverified.
+- Prototype 0.1.6 extracts ArenaBuilder from PrototypeBootstrap and moves the level to a data-driven layout of six asymmetric one-way platforms. Bot count is adjustable from 1 to 3 with last-fighter-standing rules, bots retarget the nearest living rival instead of always the player, and the HUD covers up to four fighters. Adds CombatFeel hitstop and camera shake, plus a procedural visual pass: per-layer metallic/smoothness, a rim light, background parallax and bright platform edges. No external assets were introduced. Build and smoke passed; the new layout invalidates earlier balance conclusions and needs fresh playtesting.
 - The collaboration workflow is local-first and version-batched: suggestions are collected before an approved iteration, Codex and Claude share the local project state, and GitHub is compared before and after synchronization. On 2026-09-02, clean local `main`, remote `origin/main`, and peeled tag `v0.1.4` matched commit `63cbbe66ca09d864e8a86517f1506361eef1c407`.
 
 ## Established results
