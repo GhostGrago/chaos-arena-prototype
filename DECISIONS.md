@@ -118,3 +118,10 @@
 - Decision: Add one pressure weapon (Pulse SMG), one close-range burst weapon (Scatter Blaster), and one slow area weapon (Rocket Launcher) at fixed, visible pickup points with limited ammo and timed respawn.
 - Rationale: Three deliberately different rhythms test whether pickups change platform routes without introducing a large random arsenal or inventory system.
 - Consequences: Pickups use the shared weapon profile/projectile path. Values are provisional; future content must not expand weapon count until identity, pickup fairness and ring-out pacing are playtested.
+
+## D-018 — Batched iteration with local-first Codex/Claude collaboration
+
+- Date: 2026-09-02
+- Decision: Feature requests and tuning ideas continue to accumulate in `updates/CANDIDATES.md` instead of being implemented immediately. When the candidate set forms a coherent, testable version and the user approves it, Codex and Claude may collaborate on that version using the local project files as the primary working copy. Before and after an iteration, compare the local branch, worktree, version documents, and tag with GitHub `origin/main`.
+- Rationale: Batching changes keeps each version understandable and testable. A local-first workflow lets both assistants share the same complete project state, while an explicit Git comparison prevents either a stale cloud copy or uncommitted local work from being silently overwritten.
+- Consequences: Never blindly pull, push, merge, or overwrite when local and remote histories differ. First inspect status, commits, tags, and diffs; preserve uncommitted work; then choose the intended direction. Only the tested, documented version should be synchronized to GitHub. At this decision point, local `main`, remote `main`, and peeled tag `v0.1.4` all resolve to commit `63cbbe66ca09d864e8a86517f1506361eef1c407`.
