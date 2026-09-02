@@ -116,7 +116,7 @@ namespace ChaosArena
             AssertGeometricBodies();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_018_ASSERTIONS_PASS: neon bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_019_ASSERTIONS_PASS: jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -457,13 +457,13 @@ namespace ChaosArena
                 _ => Vector3.one * 1.02f
             };
             Renderer bodyRenderer = bodyObject.GetComponent<Renderer>();
-            PrototypeMaterials.AssignSurface(bodyRenderer, tint, 0.12f, 0.34f);
+            PrototypeMaterials.AssignJelly(bodyRenderer, tint);
 
             // Glowing wireframe traced over the solid so the shape reads as lit hardware, not a grey block.
             GameObject frameObject = new("Edge Frame");
             frameObject.transform.SetParent(root, false);
             frameObject.transform.localScale = bodyObject.transform.localScale * 1.03f;
-            ProceduralShapes.CreateEdgeFrame(shape, frameObject.transform, Color.Lerp(tint, Color.white, 0.45f));
+            ProceduralShapes.CreateEdgeFrame(shape, frameObject.transform, Color.Lerp(tint, Color.white, 0.5f));
 
             GameObject eyeObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             eyeObject.name = "Eye";
@@ -472,7 +472,7 @@ namespace ChaosArena
             Collider eyeCollider = eyeObject.GetComponent<Collider>();
             eyeCollider.enabled = false;
             Destroy(eyeCollider);
-            PrototypeMaterials.AssignNeon(eyeObject.GetComponent<Renderer>(), new Color(0.85f, 0.98f, 1f), 4f);
+            PrototypeMaterials.AssignNeon(eyeObject.GetComponent<Renderer>(), new Color(0.85f, 0.98f, 1f), 2f);
 
             GameObject mountObject = new("Weapon Mount");
             mountObject.transform.SetParent(root, false);
@@ -524,7 +524,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.8 — NEON GEOMETRY & WEAPON MODELS", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.9 — JELLY GEOMETRY & BURSTS", titleStyle);
 
             DrawFighterPanel(player, 24f, 52f);
             for (int i = 1; i < roster.Count; i++)

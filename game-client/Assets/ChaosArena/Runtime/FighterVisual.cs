@@ -24,6 +24,15 @@ namespace ChaosArena
         private float tumble;
         private float bounce;
 
+        // Jelly jiggle. A spring driven by changes in velocity, so landings, hits and hard turns all set the
+        // body wobbling and it settles on its own. This sells "soft" far more than translucency does.
+        private const float JiggleStiffness = 110f;
+        private const float JiggleDamping = 7.5f;
+        private const float JiggleLimit = 0.3f;
+        private float jiggle;
+        private float jiggleVelocity;
+        private Vector3 previousVelocity;
+
         public void Bind(Transform root, Transform bodyTransform, Transform eyeTransform, Renderer tintRenderer)
         {
             visualRoot = root;
@@ -72,9 +81,11 @@ namespace ChaosArena
                 ? Mathf.Sin(Time.unscaledTime * Mathf.Lerp(9f, 20f, danger)) * danger * 2.4f
                 : 0f;
 
-            float squash = hitPulse * 0.24f + bounce * 0.1f;
+            UpdateJiggle(velocity);
+
+            float squash = hitPulse * 0.24f + bounce * 0.1f + jiggle;
             visualRoot.localPosition = new Vector3(-recoil, 0f, 0f);
-            visualRoot.localScale = new Vector3(1f + squash, 1f - squash * 0.7f, 1f);
+            visualRoot.localScale = new Vector3(1f + squash, 1f - squash * 0.72f, 1f + squash * 0.45f);
             visualRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Clamp(-velocity.x * 1.1f + dangerWobble, -16f, 16f));
 
             body.localRotation = Quaternion.Euler(0f, 0f, tumble);
@@ -91,8 +102,25 @@ namespace ChaosArena
 
             if (bodyRenderer != null)
             {
-                PrototypeMaterials.SetColor(bodyRenderer, Color.Lerp(baseTint, Color.white, hitPulse * 0.82f));
+                Color flash = Color.Lerp(baseTint, Color.white, hitPulse * 0.82f);
+                flash.a = baseTint.a;
+                PrototypeMaterials.SetColor(bodyRenderer, flash);
             }
+        }
+
+        /// <summary>Spring-damper on the body scale, kicked by any sudden change in velocity.</summary>
+        private void UpdateJiggle(Vector3 velocity)
+        {
+            float delta = Time.deltaTime;
+            if (delta <= 0f) return;
+
+            float impulse = (velocity - previousVelocity).magnitude;
+            previousVelocity = velocity;
+
+            jiggleVelocity += impulse * 0.055f;
+            jiggleVelocity -= jiggle * JiggleStiffness * delta;
+            jiggleVelocity *= Mathf.Exp(-JiggleDamping * delta);
+            jiggle = Mathf.Clamp(jiggle + jiggleVelocity * delta, -JiggleLimit, JiggleLimit);
         }
     }
 }

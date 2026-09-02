@@ -73,6 +73,8 @@ namespace ChaosArena
             {
                 target.TakeHit(weapon.Damage, new Vector3(horizontalDirection * weapon.Knockback.x, weapon.Knockback.y, 0f));
                 CombatVfx.Impact(transform.position, horizontalDirection, weapon.ProjectileColor, true);
+                // Splatter uses the victim's colour so a hit reads as jelly coming off that fighter.
+                CombatVfx.JellyBurst(transform.position, target.TintColor, 5, 0.42f, 4.2f);
                 PrototypeAudio.PlayHit(transform.position);
             }
             else
@@ -96,6 +98,7 @@ namespace ChaosArena
                 int pushDirection = Mathf.Abs(offset.x) > 0.08f ? (offset.x > 0f ? 1 : -1) : fallbackDirection;
                 target.TakeHit(weapon.Damage * falloff,
                     new Vector3(pushDirection * weapon.Knockback.x * falloff, weapon.Knockback.y * falloff, 0f));
+                CombatVfx.JellyBurst(target.transform.position, target.TintColor, 8, 0.55f, 6f);
             }
 
             for (int i = 0; i < 3; i++)

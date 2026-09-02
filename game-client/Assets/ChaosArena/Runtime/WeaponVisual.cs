@@ -92,7 +92,7 @@ namespace ChaosArena
         private void Neon(string name, Vector3 position, Vector3 scale, Color color)
         {
             GameObject piece = Build(name, position, scale);
-            PrototypeMaterials.AssignNeon(piece.GetComponent<Renderer>(), color, 3f);
+            PrototypeMaterials.AssignNeon(piece.GetComponent<Renderer>(), color, 1.6f);
         }
 
         private GameObject Build(string name, Vector3 position, Vector3 scale)

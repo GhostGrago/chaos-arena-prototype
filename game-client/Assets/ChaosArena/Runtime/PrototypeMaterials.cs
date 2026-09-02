@@ -10,6 +10,11 @@ namespace ChaosArena
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int MetallicId = Shader.PropertyToID("_Metallic");
         private static readonly int SmoothnessId = Shader.PropertyToID("_Smoothness");
+        private static readonly int SurfaceId = Shader.PropertyToID("_Surface");
+        private static readonly int BlendId = Shader.PropertyToID("_Blend");
+        private static readonly int SrcBlendId = Shader.PropertyToID("_SrcBlend");
+        private static readonly int DstBlendId = Shader.PropertyToID("_DstBlend");
+        private static readonly int ZWriteId = Shader.PropertyToID("_ZWrite");
 
         private static Material litTemplate;
         private static Material unlitTemplate;
@@ -47,7 +52,7 @@ namespace ChaosArena
         /// Unlit material driven past 1.0 so the bloom pass catches it. This is what makes edge strips and
         /// accents read as emitting light rather than just being brightly painted.
         /// </summary>
-        public static void AssignNeon(Renderer renderer, Color color, float intensity = 3.2f)
+        public static void AssignNeon(Renderer renderer, Color color, float intensity = 1.6f)
         {
             Material instance = new(GetTemplate(true))
             {
@@ -57,6 +62,37 @@ namespace ChaosArena
             SetMaterialColor(instance, color * intensity);
             renderer.sharedMaterial = instance;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        /// <summary>
+        /// Translucent, glossy "jelly" surface for fighter bodies. The template material is opaque, so the
+        /// blend state is switched at runtime. If a URP variant ever refuses the switch the body simply stays
+        /// opaque, which still reads correctly — the neon edge frame carries the silhouette either way.
+        /// </summary>
+        public static void AssignJelly(Renderer renderer, Color color, float alpha = 0.78f)
+        {
+            Material instance = new(GetTemplate(false))
+            {
+                name = "Prototype Jelly (Runtime)",
+                enableInstancing = true
+            };
+
+            Color body = color;
+            body.a = alpha;
+            SetMaterialColor(instance, body);
+            if (instance.HasProperty(MetallicId)) instance.SetFloat(MetallicId, 0f);
+            if (instance.HasProperty(SmoothnessId)) instance.SetFloat(SmoothnessId, 0.92f);
+
+            instance.SetFloat(SurfaceId, 1f);
+            instance.SetFloat(BlendId, 0f);
+            instance.SetInt(SrcBlendId, (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            instance.SetInt(DstBlendId, (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            instance.SetInt(ZWriteId, 0);
+            instance.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            instance.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            instance.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            renderer.sharedMaterial = instance;
         }
 
         public static void SetColor(Renderer renderer, Color color)

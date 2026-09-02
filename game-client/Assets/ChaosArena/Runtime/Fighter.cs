@@ -25,6 +25,7 @@ namespace ChaosArena
         public float Danger01 => 1f - Health / MaxHealth;
         public bool IsEliminated => Lives <= 0;
         public bool IsProtected => Time.time < protectedUntil;
+        public Color TintColor => fighterColor;
         public float ProtectionRemaining => Mathf.Max(0f, protectedUntil - Time.time);
 
         public void Initialize(string newName, Color newColor, Vector3 newSpawnPoint)
@@ -46,7 +47,15 @@ namespace ChaosArena
             GetComponent<FighterVisual>()?.OnHit(Danger01);
 
             // Heavier launches freeze and shake harder, so a fight-ending hit feels different from chip damage.
-            CombatFeel.Impact(Mathf.InverseLerp(1.5f, 12f, impulse.magnitude));
+            float weight = Mathf.InverseLerp(1.5f, 12f, impulse.magnitude);
+            CombatFeel.Impact(weight);
+
+            // A big launch sprays jelly. Small chip damage does not, so the burst stays meaningful.
+            if (weight > 0.45f)
+            {
+                CombatVfx.JellyBurst(transform.position, fighterColor,
+                    Mathf.RoundToInt(Mathf.Lerp(4f, 12f, weight)), Mathf.Lerp(0.5f, 0.85f, weight), 5.5f);
+            }
         }
 
         public bool LoseLife()
@@ -57,10 +66,16 @@ namespace ChaosArena
                 Health = 0f;
                 body.linearVelocity = Vector3.zero;
                 body.angularVelocity = Vector3.zero;
+                // The jelly comes apart instead of the model simply blinking out.
+                CombatVfx.JellyBurst(transform.position, fighterColor, 30, 1.15f, 9f);
+                CombatFeel.Impact(1f);
                 gameObject.SetActive(false);
                 return true;
             }
 
+            // Losing a stock also bursts, just smaller than a final elimination.
+            CombatVfx.JellyBurst(transform.position, fighterColor, 18, 0.9f, 7f);
+            CombatFeel.Impact(0.8f);
             Respawn(true);
             protectedUntil = Time.time + RespawnProtectionSeconds;
             return false;
