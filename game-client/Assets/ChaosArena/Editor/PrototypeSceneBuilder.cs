@@ -42,11 +42,21 @@ namespace ChaosArena.Editor
         }
 
         [MenuItem("Tools/Chaos Arena/Build Windows Prototype")]
-        public static void BuildWindows()
+        public static void BuildWindows() => BuildWindowsPlayer(true);
+
+        /// <summary>
+        /// Non-development build for sharing with playtesters: smaller, faster, and without the
+        /// BurstDebugInformation_DoNotShip folder. Goes to its own directory so the development build
+        /// used by the smoke test is never overwritten.
+        /// </summary>
+        [MenuItem("Tools/Chaos Arena/Build Windows Release")]
+        public static void BuildWindowsRelease() => BuildWindowsPlayer(false);
+
+        private static void BuildWindowsPlayer(bool development)
         {
             Build();
-            const string buildDirectory = "Builds/Prototype01";
-            const string executablePath = buildDirectory + "/ChaosArenaPrototype.exe";
+            string buildDirectory = development ? "Builds/Prototype01" : "Builds/Prototype01-Release";
+            string executablePath = buildDirectory + "/ChaosArenaPrototype.exe";
             Directory.CreateDirectory(buildDirectory);
 
             BuildPlayerOptions options = new()
@@ -54,7 +64,7 @@ namespace ChaosArena.Editor
                 scenes = new[] { ScenePath },
                 locationPathName = executablePath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development
+                options = development ? BuildOptions.Development : BuildOptions.None
             };
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
