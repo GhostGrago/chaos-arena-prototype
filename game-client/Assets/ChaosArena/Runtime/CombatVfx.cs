@@ -34,7 +34,12 @@ namespace ChaosArena
             piece.name = name;
             piece.transform.position = position;
             piece.transform.localScale = scale;
-            Destroy(piece.GetComponent<Collider>());
+            // Destroy() only removes the collider at the end of the frame. Muzzle pieces spawn on top of
+            // the projectile that just left the barrel, so the collider must be disabled immediately or the
+            // projectile triggers against its own muzzle flash and destroys itself before it can travel.
+            Collider pieceCollider = piece.GetComponent<Collider>();
+            pieceCollider.enabled = false;
+            Destroy(pieceCollider);
             PrototypeMaterials.Assign(piece.GetComponent<Renderer>(), color, true);
             CombatVfx behavior = piece.AddComponent<CombatVfx>();
             behavior.velocity = velocity;

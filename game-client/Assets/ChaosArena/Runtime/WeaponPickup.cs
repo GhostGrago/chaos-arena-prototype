@@ -36,7 +36,7 @@ namespace ChaosArena
                 _ => new Vector3(0.2f, 0.55f, 0.2f)
             };
             if (profile.Id == PrototypeWeaponId.RocketLauncher) body.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            Destroy(body.GetComponent<Collider>());
+            DisableAndDestroyCollider(body);
             PrototypeMaterials.Assign(body.GetComponent<Renderer>(), profile.ProjectileColor, true);
 
             GameObject halo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -44,7 +44,7 @@ namespace ChaosArena
             halo.transform.SetParent(root.transform, false);
             halo.transform.localPosition = new Vector3(0f, 0.5f, 0f);
             halo.transform.localScale = Vector3.one * 0.2f;
-            Destroy(halo.GetComponent<Collider>());
+            DisableAndDestroyCollider(halo);
             Color haloColor = profile.ProjectileColor;
             haloColor.a = 0.22f;
             PrototypeMaterials.Assign(halo.GetComponent<Renderer>(), haloColor, true);
@@ -53,6 +53,16 @@ namespace ChaosArena
             pickup.profile = profile;
             pickup.basePosition = position;
             return pickup;
+        }
+
+        // Decorative parts must lose their collider immediately; Destroy() alone leaves it live for the rest
+        // of the frame, which is long enough for a passing projectile to trigger against it and disappear.
+        private static void DisableAndDestroyCollider(GameObject target)
+        {
+            Collider decorationCollider = target.GetComponent<Collider>();
+            if (decorationCollider == null) return;
+            decorationCollider.enabled = false;
+            Destroy(decorationCollider);
         }
 
         public static WeaponPickup FindNearestAvailable(Vector3 position, float maxDistance)

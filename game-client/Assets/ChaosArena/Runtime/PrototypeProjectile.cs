@@ -52,7 +52,8 @@ namespace ChaosArena
         private void OnTriggerEnter(Collider other)
         {
             Fighter target = other.GetComponent<Fighter>();
-            if (other.GetComponent<PrototypeProjectile>() != null || other.GetComponent<WeaponPickup>() != null) return;
+            if (other.GetComponent<PrototypeProjectile>() != null || other.GetComponent<WeaponPickup>() != null ||
+                other.GetComponent<CombatVfx>() != null) return;
             if (target == owner)
             {
                 return;

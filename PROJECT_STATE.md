@@ -16,7 +16,7 @@ Normal startup requires only this file and `NEXT_TASKS.md`. Historical evidence 
 
 ## Current phase
 
-Prototype 0.1.4: complete-match, soft-follow camera, and three-weapon pickup playtest build.
+Prototype 0.1.5: firing fix, auto-rematch, respawn protection shield and balanced follow camera.
 
 ## Current status
 
@@ -32,6 +32,7 @@ Prototype 0.1.4: complete-match, soft-follow camera, and three-weapon pickup pla
 - Prototype 0.1.3 addresses the first 0.1.2 feedback: AI now selects approach/hold/reposition/edge-escape tactics, Easy uses useful multi-shot bursts, base hit impulse is about 20% stronger, hit flash/sparks/stretch are more visible, jump speed is 10.8, and staged gravity extends ascent/apex control while retaining a firm fall. Windows build, headless smoke, and a 12-second ordinary runtime check passed; subjective tuning remains.
 - Prototype 0.1.4 removes the sandbox's automatic stock refill: final stock loss stops combat, displays a winner, and supports immediate `R` rematch without a start countdown. It adds an arena-anchored camera that follows only the local player by a small clamped amount, plus fixed pickups for a 32-round Pulse SMG, 8-shot five-pellet Scatter Blaster, and 5-rocket explosive launcher. Build, dedicated match/reset assertions, smoke, and direct window rendering passed; balance remains subjective.
 - Claude continuation materials are current: root `CLAUDE.md` provides automatic startup guidance and `docs/2026-09-01_工程交接-Claude-report.md` contains the full reproducible engineering handoff.
+- Prototype 0.1.5 fixes the reported "sparks but no bullet" defect: combat VFX kept a live collider for the rest of the frame, so each projectile triggered against its own muzzle flash and destroyed itself at the barrel. Colliders are now disabled before being destroyed, projectiles ignore VFX, and a smoke assertion guards the regression. It also adds auto-rematch 2.5s after the final elimination, a bright rotating respawn-protection ring that only blinks as it expires, and a camera that balances the local fighter against the arena centre while pulling back automatically near ring-out edges. Build and smoke passed; feel is unverified.
 - The collaboration workflow is local-first and version-batched: suggestions are collected before an approved iteration, Codex and Claude share the local project state, and GitHub is compared before and after synchronization. On 2026-09-02, clean local `main`, remote `origin/main`, and peeled tag `v0.1.4` matched commit `63cbbe66ca09d864e8a86517f1506361eef1c407`.
 
 ## Established results

@@ -21,6 +21,7 @@ namespace ChaosArena
         public float Danger01 => 1f - Health / MaxHealth;
         public bool IsEliminated => Lives <= 0;
         public bool IsProtected => Time.time < protectedUntil;
+        public float ProtectionRemaining => Mathf.Max(0f, protectedUntil - Time.time);
 
         public void Initialize(string newName, Color newColor, Vector3 newSpawnPoint)
         {

@@ -19,6 +19,10 @@ namespace ChaosArena
         private float matchStartedAt;
         private float matchDuration;
 
+        // Playtest builds restart on their own so a session never parks on a result screen waiting for input.
+        private const float AutoRematchDelay = 2.5f;
+        private float autoRematchAt = -1f;
+
         private void Awake()
         {
             BuildArena();
@@ -47,6 +51,12 @@ namespace ChaosArena
             if (WeaponPickup.All.Count != 3) throw new System.InvalidOperationException("Expected three weapon pickups.");
             if (FindAnyObjectByType<ArenaCameraFollow>() == null) throw new System.InvalidOperationException("Missing local-player camera follow.");
 
+            AssertProjectileSurvivesItsOwnMuzzleFlash();
+            if (player.GetComponent<ProtectionShield>() == null || bot.GetComponent<ProtectionShield>() == null)
+            {
+                throw new System.InvalidOperationException("Both fighters need a respawn protection shield.");
+            }
+
             bool first = bot.LoseLife();
             bool second = bot.LoseLife();
             bool third = bot.LoseLife();
@@ -63,6 +73,37 @@ namespace ChaosArena
                 throw new System.InvalidOperationException("Rematch reset contract failed.");
             }
             Debug.Log("CHAOS_ARENA_014_ASSERTIONS_PASS: pickups, elimination, winner, and rematch reset verified.");
+        }
+
+        /// <summary>
+        /// Regression guard for the 0.1.5 fix: combat VFX used to keep a live collider for the rest of the
+        /// frame, so a projectile triggered against its own muzzle flash and was destroyed at the barrel.
+        /// Shots appeared as sparks with no travel, no impact and no knockback.
+        /// </summary>
+        private void AssertProjectileSurvivesItsOwnMuzzleFlash()
+        {
+            Vector3 testMuzzle = new(0f, 40f, 0f);
+            CombatVfx.Muzzle(testMuzzle, 1, Color.white);
+            foreach (CombatVfx piece in FindObjectsByType<CombatVfx>(FindObjectsSortMode.None))
+            {
+                Collider vfxCollider = piece.GetComponent<Collider>();
+                if (vfxCollider != null && vfxCollider.enabled)
+                {
+                    throw new System.InvalidOperationException(
+                        "Combat VFX kept an active collider; projectiles would self-destruct at the muzzle.");
+                }
+            }
+
+            int before = FindObjectsByType<PrototypeProjectile>(FindObjectsSortMode.None).Length;
+            PrototypeProjectile.Spawn(player, testMuzzle, Vector3.right, PrototypeWeaponProfile.Carbine);
+            PrototypeProjectile[] live = FindObjectsByType<PrototypeProjectile>(FindObjectsSortMode.None);
+            if (live.Length != before + 1)
+            {
+                throw new System.InvalidOperationException("Firing did not produce a projectile.");
+            }
+
+            foreach (PrototypeProjectile projectile in live) Destroy(projectile.gameObject);
+            foreach (CombatVfx piece in FindObjectsByType<CombatVfx>(FindObjectsSortMode.None)) Destroy(piece.gameObject);
         }
 
         private void Update()
@@ -93,6 +134,11 @@ namespace ChaosArena
                 }
             }
 
+            if (matchEnded && autoRematchAt > 0f && Time.time >= autoRematchAt)
+            {
+                StartMatch();
+            }
+
             if (Input.GetKeyDown(KeyCode.R))
             {
                 StartMatch();
@@ -108,6 +154,7 @@ namespace ChaosArena
             matchEnded = true;
             winner = loser == player ? bot : player;
             matchDuration = Time.time - matchStartedAt;
+            autoRematchAt = Time.time + AutoRematchDelay;
             SetCombatActive(false);
             ClearProjectiles();
         }
@@ -123,6 +170,7 @@ namespace ChaosArena
             }
             winner = null;
             matchEnded = false;
+            autoRematchAt = -1f;
             matchStartedAt = Time.time;
             SetCombatActive(true);
         }
@@ -172,6 +220,7 @@ namespace ChaosArena
             fighterObject.AddComponent<FighterMotor>();
             FighterVisual visual = fighterObject.AddComponent<FighterVisual>();
             BuildFighterModel(fighterObject.transform, visual, color);
+            fighterObject.AddComponent<ProtectionShield>();
             fighter.Initialize(fighterName, color, spawn);
             fighters.Add(fighter);
             return fighter;
@@ -202,8 +251,9 @@ namespace ChaosArena
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = new Color(0.09f, 0.13f, 0.19f);
-            RenderSettings.fogStartDistance = 25f;
-            RenderSettings.fogEndDistance = 62f;
+            // Pushed out so the arena keeps its contrast when the camera pulls back near a ring-out edge.
+            RenderSettings.fogStartDistance = 32f;
+            RenderSettings.fogEndDistance = 76f;
 
             GameObject lightObject = new("Key Light");
             Light light = lightObject.AddComponent<Light>();
@@ -372,8 +422,9 @@ namespace ChaosArena
                 GUI.Box(new Rect(Screen.width * 0.5f - 235f, Screen.height * 0.5f - 80f, 470f, 160f), "");
                 GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f - 62f, 440f, 55f),
                     $"{winner.DisplayName} WINS!", resultStyle);
+                float restartIn = Mathf.Max(0f, autoRematchAt - Time.time);
                 GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f + 2f, 440f, 35f),
-                    $"MATCH {matchDuration:0.0}s   •   PRESS R TO REMATCH", titleStyle);
+                    $"MATCH {matchDuration:0.0}s   •   NEXT MATCH IN {restartIn:0.0}s", titleStyle);
             }
 
             GUI.Label(new Rect(24f, Screen.height - 62f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
