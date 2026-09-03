@@ -29,12 +29,23 @@ namespace ChaosArena
         private const float MaxPullBack = 8f;
 
         private readonly Vector3 arenaFocus = new(0f, 2.25f, 0.5f);
-        private Transform localPlayer;
+        private readonly Transform[] players = new Transform[3];
         private Vector3 velocity;
+
+        public bool HasSecondaryTarget => players[1] != null;
+        public int TargetCount => (players[0] != null ? 1 : 0) + (players[1] != null ? 1 : 0) +
+                                  (players[2] != null ? 1 : 0);
 
         public void SetTarget(Transform target)
         {
-            localPlayer = target;
+            SetTargets(target, null, null);
+        }
+
+        public void SetTargets(Transform primary, Transform secondary, Transform tertiary = null)
+        {
+            players[0] = primary;
+            players[1] = secondary;
+            players[2] = tertiary;
         }
 
         private void LateUpdate()
@@ -42,17 +53,37 @@ namespace ChaosArena
             Vector3 focus = arenaFocus;
             float pullBack = 0f;
 
-            if (localPlayer != null && localPlayer.gameObject.activeInHierarchy)
+            Vector3 sum = Vector3.zero;
+            int activeCount = 0;
+            float farthestX = 0f;
+            float highestY = float.MinValue;
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            for (int i = 0; i < players.Length; i++)
             {
-                Vector3 position = localPlayer.position;
-                float verticalOffset = position.y - arenaFocus.y;
+                Transform target = players[i];
+                if (target == null || !target.gameObject.activeInHierarchy) continue;
+                Vector3 position = target.position;
+                sum += position;
+                activeCount++;
+                farthestX = Mathf.Max(farthestX, Mathf.Abs(position.x));
+                highestY = Mathf.Max(highestY, position.y);
+                minX = Mathf.Min(minX, position.x);
+                maxX = Mathf.Max(maxX, position.x);
+            }
 
-                focus.x = Mathf.Clamp(position.x * FollowWeightX, -FocusLimitX, FocusLimitX);
+            if (activeCount > 0)
+            {
+                Vector3 framingPosition = sum / activeCount;
+                float verticalOffset = framingPosition.y - arenaFocus.y;
+
+                focus.x = Mathf.Clamp(framingPosition.x * FollowWeightX, -FocusLimitX, FocusLimitX);
                 focus.y = arenaFocus.y + Mathf.Clamp(verticalOffset * FollowWeightY, FocusLimitDown, FocusLimitUp);
 
-                float edge01 = Mathf.InverseLerp(EdgeZoomStart, EdgeZoomFull, Mathf.Abs(position.x));
-                float air01 = Mathf.InverseLerp(AirZoomStart, AirZoomFull, verticalOffset);
-                pullBack = Mathf.Max(edge01, air01) * MaxPullBack;
+                float edge01 = Mathf.InverseLerp(EdgeZoomStart, EdgeZoomFull, farthestX);
+                float air01 = Mathf.InverseLerp(AirZoomStart, AirZoomFull, highestY - arenaFocus.y);
+                float separation01 = activeCount > 1 ? Mathf.InverseLerp(8f, 20f, maxX - minX) : 0f;
+                pullBack = Mathf.Max(edge01, Mathf.Max(air01, separation01)) * MaxPullBack;
             }
 
             Vector3 desired = new(focus.x, focus.y + CameraHeightAboveFocus, BaseDistance - pullBack);

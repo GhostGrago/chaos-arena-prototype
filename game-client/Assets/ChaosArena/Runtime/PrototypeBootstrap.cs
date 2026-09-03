@@ -50,10 +50,33 @@ namespace ChaosArena
         private float matchStartedAt;
         private float matchDuration;
         private int botCount = 1;
+        private int localPlayerCount = 1;
         private bool paused;
         private bool inMenu = true;
         private string joinCodeEntry = string.Empty;
         private float codeCopiedUntil;
+        private int lastReportedControllerCount = -1;
+        private bool showDisplaySettings;
+        private readonly List<Vector2Int> displayResolutions = new();
+        private int selectedResolutionIndex;
+        private bool selectedBorderless;
+        private string displayStatus = string.Empty;
+        private float uiScale = 1f;
+
+        private static readonly Vector2Int[] BaseDisplayResolutions =
+        {
+            new(1280, 720),
+            new(1600, 900),
+            new(1920, 1080),
+            new(2560, 1440),
+            new(3840, 2160)
+        };
+
+        private const string DisplayWidthKey = "ChaosArena.DisplayWidth";
+        private const string DisplayHeightKey = "ChaosArena.DisplayHeight";
+        private const string DisplayBorderlessKey = "ChaosArena.DisplayBorderless";
+        private float UiWidth => Screen.width / uiScale;
+        private float UiHeight => Screen.height / uiScale;
 
         private static NetworkSession Session => NetworkSession.Instance;
         private bool Networked => Session != null && Session.Mode != SessionMode.Offline;
@@ -64,25 +87,35 @@ namespace ChaosArena
         // Playtest builds restart on their own so a session never parks on a result screen waiting for input.
         // Tightened in 0.1.6+ledge-grab: the old 16-unit margin let fighters die far off screen with no
         // chance to react. With a recovery move available, a closer boundary is both fairer and visible.
-        private const float RingOutSide = 13f;
-        private const float RingOutFloor = -6f;
+        // Fixed host-authoritative bounds are used instead of a client's screen edge because every online
+        // client has a different soft-follow camera. Leave generous recovery space for air control and the
+        // second jump: the widened main deck ends near +/-10.45, well inside these limits.
+        private const float RingOutSide = 19f;
+        private const float RingOutFloor = -9.5f;
 
         private const float AutoRematchDelay = 2.5f;
         private float autoRematchAt = -1f;
 
         private void Awake()
         {
+            if (!Application.isBatchMode) InitializeDisplaySettings();
             ArenaBuilder.Build();
             CombatFeel.Ensure();
             pickups = gameObject.AddComponent<PickupDirector>();
 
             player = CreateFighter("PLAYER", FighterColors[0], SpawnPoints[0], FighterShapes[0]);
-            player.gameObject.AddComponent<HumanController>();
+            player.gameObject.AddComponent<HumanController>().Configure(LocalInputSlot.PlayerOne);
 
             for (int i = 0; i < MaxBots; i++)
             {
                 Fighter botFighter = CreateFighter($"BOT {i + 1}", FighterColors[i + 1], SpawnPoints[i + 1], FighterShapes[i + 1]);
                 botFighter.gameObject.AddComponent<BotController>().SetDifficulty(difficulty);
+                if (i < 2)
+                {
+                    HumanController localController = botFighter.gameObject.AddComponent<HumanController>();
+                    localController.Configure(i == 0 ? LocalInputSlot.PlayerTwo : LocalInputSlot.PlayerThree);
+                    localController.enabled = false;
+                }
             }
 
             // Fighters pass through each other; only attacks connect.
@@ -128,6 +161,24 @@ namespace ChaosArena
             {
                 throw new System.InvalidOperationException("Expected at least five one-way platforms.");
             }
+            foreach (ArenaBuilder.PlatformDefinition definition in ArenaBuilder.Layout)
+            {
+                GameObject platform = GameObject.Find(definition.Name);
+                if (platform == null || !Mathf.Approximately(platform.transform.localScale.x, definition.Scale.x))
+                {
+                    throw new System.InvalidOperationException("Runtime platform width does not match the arena layout.");
+                }
+            }
+            float mainPlatformEdge = ArenaBuilder.Layout[0].Position.x + ArenaBuilder.Layout[0].Scale.x * 0.5f;
+            if (RingOutSide - mainPlatformEdge < 8f || RingOutFloor > -9f)
+            {
+                throw new System.InvalidOperationException("Ring-out bounds do not leave enough recovery space.");
+            }
+            PrototypeWeaponProfile sniper = PrototypeWeaponProfile.Sniper;
+            if (!Mathf.Approximately(sniper.Damage, 10f) || sniper.Knockback.x < 7f || sniper.FireCooldown < 1.7f)
+            {
+                throw new System.InvalidOperationException("Sniper must keep its stronger, slower single-shot identity without raising damage.");
+            }
 
             AssertProjectileSurvivesItsOwnMuzzleFlash();
             foreach (Fighter fighter in allFighters)
@@ -140,11 +191,22 @@ namespace ChaosArena
 
             AssertGeometricBodies();
             AssertKnockbackSurvivesMovement();
+            AssertShooterRecoilMovesFighter();
             AssertProtectionWeakensRatherThanBlocks();
             AssertPauseRestoresTime();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_023_ASSERTIONS_PASS: random drops, pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            AssertLocalMultiplayerContract();
+            AssertDisplaySettingsContract();
+            Debug.Log("CHAOS_ARENA_030_ASSERTIONS_PASS: local three-player roster/input/camera, 4K display presets, dual-trigger firing, physical shooter recoil, wider platforms, extended recovery bounds, stronger slower sniper, random drops, pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+        }
+
+        private static void AssertDisplaySettingsContract()
+        {
+            if (!BaseDisplayResolutions.Contains(new Vector2Int(3840, 2160)))
+            {
+                throw new System.InvalidOperationException("Display settings must include a 4K preset.");
+            }
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -202,6 +264,21 @@ namespace ChaosArena
             if (!motor.InKnockback) throw new System.InvalidOperationException("Knockback stun failed to engage.");
         }
 
+        /// <summary>Regression guard: recoil must change the fighter's physical velocity, not only animate the gun.</summary>
+        private void AssertShooterRecoilMovesFighter()
+        {
+            FighterMotor motor = player.GetComponent<FighterMotor>();
+            Rigidbody fighterBody = player.GetComponent<Rigidbody>();
+            fighterBody.linearVelocity = Vector3.zero;
+            motor.ApplyShooterRecoil(PrototypeWeaponProfile.Carbine);
+            float backwardVelocity = fighterBody.linearVelocity.x * motor.Facing;
+            if (backwardVelocity > -0.75f)
+            {
+                throw new System.InvalidOperationException("Shooter recoil did not produce visible backward velocity.");
+            }
+            fighterBody.linearVelocity = Vector3.zero;
+        }
+
         /// <summary>
         /// Respawn protection must reduce a hit, not erase it. Full immunity read as the attack failing to
         /// register, so a protected fighter has to lose some health and still take some knockback.
@@ -257,6 +334,45 @@ namespace ChaosArena
             }
 
             SetBotCount(1);
+        }
+
+        private void AssertLocalMultiplayerContract()
+        {
+            localPlayerCount = 2;
+            botCount = 0;
+            StartMatch();
+
+            if (HumanSeats != 2 || roster.Count != 2)
+            {
+                throw new System.InvalidOperationException("Local two-player must create exactly two human seats.");
+            }
+
+            HumanController first = allFighters[0].GetComponent<HumanController>();
+            HumanController second = allFighters[1].GetComponent<HumanController>();
+            if (first == null || second == null || first.InputSlot != LocalInputSlot.PlayerOne ||
+                second.InputSlot != LocalInputSlot.PlayerTwo || !first.enabled || !second.enabled)
+            {
+                throw new System.InvalidOperationException("Local two-player input ownership is not configured correctly.");
+            }
+
+            ArenaCameraFollow cameraFollow = FindAnyObjectByType<ArenaCameraFollow>();
+            if (cameraFollow == null || !cameraFollow.HasSecondaryTarget)
+            {
+                throw new System.InvalidOperationException("Shared local-two-player camera is missing its second target.");
+            }
+
+            localPlayerCount = 3;
+            StartMatch();
+            HumanController third = allFighters[2].GetComponent<HumanController>();
+            if (HumanSeats != 3 || roster.Count != 3 || third == null ||
+                third.InputSlot != LocalInputSlot.PlayerThree || !third.enabled || cameraFollow.TargetCount != 3)
+            {
+                throw new System.InvalidOperationException("Local three-player input, roster, or camera ownership is not configured correctly.");
+            }
+
+            localPlayerCount = 1;
+            botCount = 1;
+            StartMatch();
         }
 
         /// <summary>Last fighter standing wins, and a rematch restores the whole roster.</summary>
@@ -331,6 +447,14 @@ namespace ChaosArena
                 return;
             }
 
+            ReportControllerDevices();
+
+            if (showDisplaySettings && Input.GetKeyDown(KeyCode.Escape))
+            {
+                showDisplaySettings = false;
+                return;
+            }
+
             if (inMenu) return;
 
             if (Input.GetKeyDown(KeyCode.Escape)) SetPaused(!paused);
@@ -398,10 +522,10 @@ namespace ChaosArena
         private readonly int[] remoteLives = new int[NetMatch.MaxFighters];
         private readonly bool[] remoteActive = new bool[NetMatch.MaxFighters];
 
-        /// <summary>Seats currently held by people. Offline that is just the local player.</summary>
+        /// <summary>Seats currently held by people. Offline supports keyboard-only solo or 2–3 local players.</summary>
         private int HumanSeats => Networked && NetMatch.Instance != null
             ? Mathf.Clamp(NetMatch.Instance.HumanSeats, 1, NetMatch.MaxFighters)
-            : 1;
+            : Mathf.Clamp(localPlayerCount, 1, 3);
 
         /// <summary>
         /// Re-derives who owns each seat. Seat ownership used to be decided only inside StartMatch, so a
@@ -420,10 +544,16 @@ namespace ChaosArena
                 fighter.SetDisplayName(BuildSeatName(seat, humans));
 
                 BotController brain = fighter.GetComponent<BotController>();
+                HumanController human = fighter.GetComponent<HumanController>();
                 if (brain != null)
                 {
                     bool inRoster = roster.Contains(fighter);
                     brain.enabled = authority && inRoster && !isHuman && !matchEnded;
+                }
+                if (human != null)
+                {
+                    bool localInputSeat = Networked ? seat == 0 : isHuman;
+                    human.enabled = roster.Contains(fighter) && localInputSeat && !matchEnded;
                 }
             }
 
@@ -438,12 +568,14 @@ namespace ChaosArena
                     FindAnyObjectByType<ArenaCameraFollow>()?.SetTarget(player.transform);
                 }
             }
+
+            ConfigureCameraTargets();
         }
 
         private string BuildSeatName(int seat, int humans)
         {
             if (seat >= humans) return $"BOT {seat - humans + 1}";
-            return Networked ? $"PLAYER {seat + 1}" : "PLAYER";
+            return Networked || localPlayerCount > 1 ? $"PLAYER {seat + 1}" : "PLAYER";
         }
 
         /// <summary>
@@ -666,7 +798,7 @@ namespace ChaosArena
 
         private void SetBotCount(int count)
         {
-            botCount = Mathf.Clamp(count, 0, MaxBots);
+            botCount = localPlayerCount > 1 ? 0 : Mathf.Clamp(count, 0, MaxBots);
             StartMatch();
         }
 
@@ -720,6 +852,26 @@ namespace ChaosArena
             matchStartedAt = Time.time;
             SetCombatActive(true);
             RetargetBots();
+            ConfigureCameraTargets();
+        }
+
+        private void ConfigureCameraTargets()
+        {
+            ArenaCameraFollow cameraFollow = FindAnyObjectByType<ArenaCameraFollow>();
+            if (cameraFollow == null) return;
+
+            if (!Networked && localPlayerCount >= 3 && roster.Count >= 3)
+            {
+                cameraFollow.SetTargets(roster[0].transform, roster[1].transform, roster[2].transform);
+            }
+            else if (!Networked && localPlayerCount == 2 && roster.Count >= 2)
+            {
+                cameraFollow.SetTargets(roster[0].transform, roster[1].transform);
+            }
+            else
+            {
+                cameraFollow.SetTarget(player.transform);
+            }
         }
 
         private void SetCombatActive(bool active)
@@ -732,11 +884,11 @@ namespace ChaosArena
                 HumanController human = fighter.GetComponent<HumanController>();
                 BotController brain = fighter.GetComponent<BotController>();
 
-                // A seat taken by a remote player is driven by their input, never by a local brain.
-                bool seatIsRemoteHuman = Networked && NetMatch.Instance != null && seat > 0 && seat < NetMatch.Instance.HumanSeats;
+                bool seatIsHuman = seat < HumanSeats;
+                bool localInputSeat = Networked ? seat == 0 : seatIsHuman;
                 if (motor != null) motor.enabled = active && authority;
-                if (human != null) human.enabled = active;
-                if (brain != null) brain.enabled = active && authority && !seatIsRemoteHuman;
+                if (human != null) human.enabled = active && localInputSeat;
+                if (brain != null) brain.enabled = active && authority && !seatIsHuman;
                 Rigidbody body = fighter.GetComponent<Rigidbody>();
                 if (!active && body != null)
                 {
@@ -859,11 +1011,19 @@ namespace ChaosArena
 
         private void OnGUI()
         {
+            uiScale = Mathf.Clamp(Mathf.Min(Screen.width / 1920f, Screen.height / 1080f), 1f, 2f);
+            GUI.matrix = Matrix4x4.Scale(new Vector3(uiScale, uiScale, 1f));
             titleStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.2.5 — DUSK CITY & RANDOM DROPS", titleStyle);
+            GUI.Label(new Rect(0f, 12f, UiWidth, 30f), "PROTOTYPE 0.3.0 — LOCAL MULTIPLAYER", titleStyle);
+
+            if (showDisplaySettings)
+            {
+                DrawDisplaySettings();
+                return;
+            }
 
             if (inMenu)
             {
@@ -871,23 +1031,40 @@ namespace ChaosArena
                 return;
             }
 
+            int requiredControllers = Mathf.Max(0, localPlayerCount - 1);
+            if (!Networked && requiredControllers > HumanController.ConnectedControllerCount)
+            {
+                GUI.Box(new Rect(UiWidth * 0.5f - 260f, 48f, 520f, 34f),
+                    $"CONNECT {requiredControllers} GAMEPADS — DETECTED {HumanController.ConnectedControllerCount}");
+            }
+
             DrawFighterPanel(player, 24f, 52f);
             for (int i = 1; i < roster.Count; i++)
             {
-                DrawFighterPanel(roster[i], Screen.width - 300f, 52f + (i - 1) * 52f);
+                DrawFighterPanel(roster[i], UiWidth - 300f, 52f + (i - 1) * 52f);
             }
 
             if (matchEnded && winner != null)
             {
                 float restartIn = Mathf.Max(0f, autoRematchAt - Time.time);
-                GUI.Box(new Rect(Screen.width * 0.5f - 235f, Screen.height * 0.5f - 80f, 470f, 160f), "");
-                GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f - 62f, 440f, 55f),
+                GUI.Box(new Rect(UiWidth * 0.5f - 235f, UiHeight * 0.5f - 80f, 470f, 160f), "");
+                GUI.Label(new Rect(UiWidth * 0.5f - 220f, UiHeight * 0.5f - 62f, 440f, 55f),
                     $"{winner.DisplayName} WINS!", resultStyle);
-                GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f + 2f, 440f, 35f),
+                GUI.Label(new Rect(UiWidth * 0.5f - 220f, UiHeight * 0.5f + 2f, 440f, 35f),
                     $"MATCH {matchDuration:0.0}s   •   NEXT MATCH IN {restartIn:0.0}s", titleStyle);
             }
 
-            DrawOffscreenIndicator();
+            if (localPlayerCount > 1 && !Networked)
+            {
+                for (int i = 0; i < localPlayerCount && i < roster.Count; i++)
+                {
+                    DrawOffscreenIndicator(roster[i], $"P{i + 1} ▸", FighterColors[i]);
+                }
+            }
+            else
+            {
+                DrawOffscreenIndicator(player, "YOU ▸", player != null ? player.TintColor : FighterColors[0]);
+            }
 
             if (paused)
             {
@@ -895,23 +1072,33 @@ namespace ChaosArena
                 return;
             }
 
-            GUI.Label(new Rect(24f, Screen.height - 84f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
-            GUI.Label(new Rect(24f, Screen.height - 60f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  R restart now");
-            GUI.Label(new Rect(24f, Screen.height - 36f, 1100f, 26f),
-                $"0/1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})  •  ESC menu");
+            if (localPlayerCount > 1 && !Networked)
+            {
+                GUI.Label(new Rect(24f, UiHeight - 108f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
+                GUI.Label(new Rect(24f, UiHeight - 84f, 1240f, 26f), "P1  Keyboard: A/D move • Space jump • S drop • J fire");
+                GUI.Label(new Rect(24f, UiHeight - 60f, 1240f, 26f), "P2  Gamepad 1 • P3  Gamepad 2: Stick move • South jump • East/drop • LT/RT fire");
+                GUI.Label(new Rect(24f, UiHeight - 36f, 1100f, 26f), "R restart now  •  ESC menu");
+            }
+            else
+            {
+                GUI.Label(new Rect(24f, UiHeight - 84f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
+                GUI.Label(new Rect(24f, UiHeight - 60f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  R restart now");
+                GUI.Label(new Rect(24f, UiHeight - 36f, 1100f, 26f),
+                    $"0/1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})  •  ESC menu");
+            }
         }
 
         /// <summary>
         /// Points at the local player once a launch carries them off screen. The camera deliberately stays on
         /// the arena rather than chasing, so without this a strong knockback ends in an unseen death.
         /// </summary>
-        private void DrawOffscreenIndicator()
+        private void DrawOffscreenIndicator(Fighter target, string label, Color tint)
         {
-            if (player == null || !player.gameObject.activeInHierarchy) return;
+            if (target == null || !target.gameObject.activeInHierarchy) return;
             Camera view = Camera.main;
             if (view == null) return;
 
-            Vector3 viewport = view.WorldToViewportPoint(player.transform.position);
+            Vector3 viewport = view.WorldToViewportPoint(target.transform.position);
             bool behind = viewport.z < 0f;
             if (!behind && viewport.x >= 0.04f && viewport.x <= 0.96f && viewport.y >= 0.04f && viewport.y <= 0.96f) return;
 
@@ -921,12 +1108,12 @@ namespace ChaosArena
                 viewport.y = 1f - viewport.y;
             }
 
-            float screenX = Mathf.Clamp(viewport.x, 0.04f, 0.96f) * Screen.width;
-            float screenY = (1f - Mathf.Clamp(viewport.y, 0.04f, 0.96f)) * Screen.height;
+            float screenX = Mathf.Clamp(viewport.x, 0.04f, 0.96f) * UiWidth;
+            float screenY = (1f - Mathf.Clamp(viewport.y, 0.04f, 0.96f)) * UiHeight;
 
             Color previous = GUI.color;
-            GUI.color = FighterColors[0];
-            GUI.Box(new Rect(screenX - 46f, screenY - 16f, 92f, 32f), "YOU ▸");
+            GUI.color = tint;
+            GUI.Box(new Rect(screenX - 46f, screenY - 16f, 92f, 32f), label);
             GUI.color = previous;
         }
 
@@ -934,9 +1121,9 @@ namespace ChaosArena
         private void DrawMainMenu()
         {
             const float width = 420f;
-            const float height = 340f;
-            float left = Screen.width * 0.5f - width * 0.5f;
-            float top = Screen.height * 0.5f - height * 0.5f;
+            const float height = 550f;
+            float left = UiWidth * 0.5f - width * 0.5f;
+            float top = UiHeight * 0.5f - height * 0.5f;
 
             GUI.Box(new Rect(left, top, width, height), "");
             GUI.Label(new Rect(left, top + 16f, width, 40f), "GEOMETRY FIGHTERS", resultStyle);
@@ -947,58 +1134,82 @@ namespace ChaosArena
             if (GUI.Button(new Rect(left + 40f, top + 74f, width - 80f, 40f), "PLAY SOLO (vs BOTS)"))
             {
                 Session?.PlayOffline();
+                localPlayerCount = 1;
                 botCount = Mathf.Max(1, botCount);
                 BeginPlaying();
             }
 
-            if (GUI.Button(new Rect(left + 40f, top + 122f, width - 80f, 40f), "HOST ONLINE ROOM"))
+            if (GUI.Button(new Rect(left + 40f, top + 122f, width - 80f, 40f), "LOCAL 2 PLAYERS"))
+            {
+                Session?.PlayOffline();
+                localPlayerCount = 2;
+                botCount = 0;
+                BeginPlaying();
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 170f, width - 80f, 40f), "LOCAL 3 PLAYERS"))
+            {
+                Session?.PlayOffline();
+                localPlayerCount = 3;
+                botCount = 0;
+                BeginPlaying();
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 218f, width - 80f, 40f), "HOST ONLINE ROOM"))
             {
                 // An opened room starts empty so arriving players are not padded out with bots.
+                localPlayerCount = 1;
                 botCount = 0;
                 Session?.HostRelay();
             }
 
-            GUI.Label(new Rect(left + 20f, top + 174f, 110f, 28f), "ROOM CODE", hudStyle);
-            joinCodeEntry = GUI.TextField(new Rect(left + 128f, top + 174f, 170f, 28f), joinCodeEntry, 8);
-            if (GUI.Button(new Rect(left + 304f, top + 174f, 78f, 28f), "PASTE"))
+            GUI.Label(new Rect(left + 20f, top + 270f, 110f, 28f), "ROOM CODE", hudStyle);
+            joinCodeEntry = GUI.TextField(new Rect(left + 128f, top + 270f, 170f, 28f), joinCodeEntry, 8);
+            if (GUI.Button(new Rect(left + 304f, top + 270f, 78f, 28f), "PASTE"))
             {
                 joinCodeEntry = (GUIUtility.systemCopyBuffer ?? string.Empty).Trim().ToUpperInvariant();
             }
 
-            if (GUI.Button(new Rect(left + 40f, top + 210f, width - 80f, 40f), "JOIN ROOM"))
+            if (GUI.Button(new Rect(left + 40f, top + 306f, width - 80f, 40f), "JOIN ROOM"))
             {
+                localPlayerCount = 1;
                 Session?.JoinRelay(joinCodeEntry);
             }
 
             GUI.enabled = true;
 
+            if (GUI.Button(new Rect(left + 40f, top + 440f, width - 80f, 36f), "DISPLAY SETTINGS"))
+            {
+                OpenDisplaySettings();
+            }
+
             string message = busy ? (Session != null ? Session.Status : "Working...") : Session?.Status;
             if (!string.IsNullOrEmpty(message))
             {
-                GUI.Label(new Rect(left + 20f, top + 258f, width - 40f, 48f), message);
+                GUI.Label(new Rect(left + 20f, top + 354f, width - 40f, 48f), message);
             }
 
             if (Session != null && Session.Mode == SessionMode.Host && !string.IsNullOrEmpty(Session.JoinCode))
             {
-                GUI.Label(new Rect(left + 20f, top + 256f, 250f, 30f), $"ROOM CODE: {Session.JoinCode}", hudStyle);
-                if (GUI.Button(new Rect(left + 276f, top + 256f, 106f, 28f),
+                GUI.Label(new Rect(left + 20f, top + 354f, 250f, 30f), $"ROOM CODE: {Session.JoinCode}", hudStyle);
+                if (GUI.Button(new Rect(left + 276f, top + 354f, 106f, 28f),
                     Time.unscaledTime < codeCopiedUntil ? "COPIED!" : "COPY CODE"))
                 {
                     GUIUtility.systemCopyBuffer = Session.JoinCode;
                     codeCopiedUntil = Time.unscaledTime + 1.5f;
                 }
 
-                if (GUI.Button(new Rect(left + 40f, top + 292f, width - 80f, 34f), "START MATCH")) BeginPlaying();
+                if (GUI.Button(new Rect(left + 40f, top + 390f, width - 80f, 34f), "START MATCH")) BeginPlaying();
             }
             else if (Session != null && Session.Mode == SessionMode.Client)
             {
-                GUI.Label(new Rect(left, top + 258f, width, 34f), "Connected. Waiting for host...", titleStyle);
+                GUI.Label(new Rect(left, top + 354f, width, 34f), "Connected. Waiting for host...", titleStyle);
                 BeginPlaying();
             }
             else
             {
                 GUI.Label(new Rect(left + 20f, top + height - 30f, width - 40f, 24f),
-                    "Host shares the room code; friends type it to join.");
+                    $"GAMEPADS: {HumanController.ConnectedControllerCount}  •  P2 {HumanController.ControllerName(0)}  •  P3 {HumanController.ControllerName(1)}");
             }
         }
 
@@ -1008,6 +1219,10 @@ namespace ChaosArena
             wasConnected = false;
             WeaponPickup.LocalPickupsEnabled = HasAuthority;
 
+            // Returning from an online client can leave `player` pointing at its former remote seat.
+            // Every offline mode owns seat zero locally, so restore that stable identity before starting.
+            if (!Networked && allFighters.Count > 0) player = allFighters[0];
+
             for (int i = 0; i < NetMatch.MaxFighters; i++)
             {
                 remoteHealth[i] = Fighter.MaxHealth;
@@ -1016,6 +1231,16 @@ namespace ChaosArena
             }
 
             if (HasAuthority) StartMatch();
+        }
+
+        private void ReportControllerDevices()
+        {
+            int count = HumanController.ConnectedControllerCount;
+            if (count == lastReportedControllerCount) return;
+            lastReportedControllerCount = count;
+            string first = HumanController.ControllerName(0);
+            string second = HumanController.ControllerName(1);
+            Debug.Log($"CHAOS_LOCAL_GAMEPADS: count={count}; P2={first}; P3={second}");
         }
 
         /// <summary>
@@ -1046,9 +1271,9 @@ namespace ChaosArena
         private void DrawPauseMenu()
         {
             const float width = 360f;
-            const float height = 430f;
-            float left = Screen.width * 0.5f - width * 0.5f;
-            float top = Screen.height * 0.5f - height * 0.5f;
+            const float height = 486f;
+            float left = UiWidth * 0.5f - width * 0.5f;
+            float top = UiHeight * 0.5f - height * 0.5f;
             float inner = width - 80f;
 
             GUI.Box(new Rect(left, top, width, height), "");
@@ -1064,7 +1289,8 @@ namespace ChaosArena
                 (int)difficulty,
                 index => SetDifficulty((BotDifficulty)index));
 
-            GUI.Label(new Rect(left + 40f, top + 130f, inner, 24f), "BOTS", hudStyle);
+            GUI.Label(new Rect(left + 40f, top + 130f, inner, 24f), localPlayerCount > 1 ? "BOTS (disabled in local multiplayer)" : "BOTS", hudStyle);
+            GUI.enabled = canConfigure && localPlayerCount == 1;
             DrawChoiceRow(left + 40f, top + 154f, inner,
                 new[] { "0", "1", "2", "3" },
                 botCount,
@@ -1095,12 +1321,99 @@ namespace ChaosArena
                 inMenu = true;
             }
 
-            if (GUI.Button(new Rect(left + 40f, top + 354f, inner, 34f), "QUIT GAME"))
+            if (GUI.Button(new Rect(left + 40f, top + 354f, inner, 38f), "DISPLAY SETTINGS"))
+            {
+                OpenDisplaySettings();
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 398f, inner, 34f), "QUIT GAME"))
             {
                 Application.Quit();
             }
 
             GUI.Label(new Rect(left, top + height - 26f, width, 24f), "ESC closes this menu", titleStyle);
+        }
+
+        private void InitializeDisplaySettings()
+        {
+            displayResolutions.Clear();
+            displayResolutions.AddRange(BaseDisplayResolutions);
+            Vector2Int native = new(Screen.currentResolution.width, Screen.currentResolution.height);
+            if (!displayResolutions.Contains(native)) displayResolutions.Add(native);
+            displayResolutions.Sort((a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.y.CompareTo(b.y));
+
+            int targetWidth = PlayerPrefs.GetInt(DisplayWidthKey, Screen.width);
+            int targetHeight = PlayerPrefs.GetInt(DisplayHeightKey, Screen.height);
+            selectedResolutionIndex = FindClosestResolution(targetWidth, targetHeight);
+            selectedBorderless = PlayerPrefs.GetInt(DisplayBorderlessKey,
+                Screen.fullScreenMode == FullScreenMode.Windowed ? 0 : 1) == 1;
+
+            if (PlayerPrefs.HasKey(DisplayWidthKey)) ApplyDisplaySettings(false);
+        }
+
+        private int FindClosestResolution(int width, int height)
+        {
+            int best = 0;
+            long bestDistance = long.MaxValue;
+            for (int i = 0; i < displayResolutions.Count; i++)
+            {
+                long dx = displayResolutions[i].x - width;
+                long dy = displayResolutions[i].y - height;
+                long distance = dx * dx + dy * dy;
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = i;
+            }
+            return best;
+        }
+
+        private void OpenDisplaySettings()
+        {
+            selectedResolutionIndex = FindClosestResolution(Screen.width, Screen.height);
+            selectedBorderless = Screen.fullScreenMode != FullScreenMode.Windowed;
+            displayStatus = string.Empty;
+            showDisplaySettings = true;
+        }
+
+        private void DrawDisplaySettings()
+        {
+            const float width = 500f;
+            const float height = 330f;
+            float left = UiWidth * 0.5f - width * 0.5f;
+            float top = UiHeight * 0.5f - height * 0.5f;
+            GUI.Box(new Rect(left, top, width, height), "");
+            GUI.Label(new Rect(left, top + 16f, width, 40f), "DISPLAY SETTINGS", resultStyle);
+
+            GUI.Label(new Rect(left + 50f, top + 68f, width - 100f, 24f), "RESOLUTION", hudStyle);
+            Vector2Int resolution = displayResolutions[Mathf.Clamp(selectedResolutionIndex, 0, displayResolutions.Count - 1)];
+            if (GUI.Button(new Rect(left + 50f, top + 96f, 52f, 36f), "<"))
+                selectedResolutionIndex = (selectedResolutionIndex - 1 + displayResolutions.Count) % displayResolutions.Count;
+            GUI.Label(new Rect(left + 110f, top + 96f, width - 220f, 36f), $"{resolution.x} × {resolution.y}", titleStyle);
+            if (GUI.Button(new Rect(left + width - 102f, top + 96f, 52f, 36f), ">"))
+                selectedResolutionIndex = (selectedResolutionIndex + 1) % displayResolutions.Count;
+
+            GUI.Label(new Rect(left + 50f, top + 146f, width - 100f, 24f), "WINDOW MODE", hudStyle);
+            DrawChoiceRow(left + 50f, top + 172f, width - 100f,
+                new[] { "WINDOWED", "BORDERLESS" }, selectedBorderless ? 1 : 0,
+                index => selectedBorderless = index == 1);
+
+            if (GUI.Button(new Rect(left + 50f, top + 222f, 190f, 40f), "APPLY")) ApplyDisplaySettings(true);
+            if (GUI.Button(new Rect(left + width - 240f, top + 222f, 190f, 40f), "BACK")) showDisplaySettings = false;
+            GUI.Label(new Rect(left + 50f, top + 274f, width - 100f, 28f), displayStatus, titleStyle);
+            GUI.Label(new Rect(left, top + height - 24f, width, 22f), "ESC returns without applying", titleStyle);
+        }
+
+        private void ApplyDisplaySettings(bool showConfirmation)
+        {
+            if (displayResolutions.Count == 0) return;
+            Vector2Int resolution = displayResolutions[Mathf.Clamp(selectedResolutionIndex, 0, displayResolutions.Count - 1)];
+            FullScreenMode mode = selectedBorderless ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
+            Screen.SetResolution(resolution.x, resolution.y, mode);
+            PlayerPrefs.SetInt(DisplayWidthKey, resolution.x);
+            PlayerPrefs.SetInt(DisplayHeightKey, resolution.y);
+            PlayerPrefs.SetInt(DisplayBorderlessKey, selectedBorderless ? 1 : 0);
+            PlayerPrefs.Save();
+            if (showConfirmation) displayStatus = $"APPLIED: {resolution.x} × {resolution.y} — {(selectedBorderless ? "BORDERLESS" : "WINDOWED")}";
         }
 
         /// <summary>Row of mutually exclusive options; the active one is marked so the state is readable.</summary>

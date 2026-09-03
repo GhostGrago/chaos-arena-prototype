@@ -2,135 +2,96 @@
 
 Updated: 2026-09-02
 
-This file contains only unfinished feature candidates. The original detailed backlog is archived at `../docs/archive/updates/CANDIDATES_FULL_2026-09-01.md`.
+Active sections contain only unfinished work. A short completed-identifier index prevents obsolete IDs from being reopened; full history is preserved in `VERSION_*.md`, `PROJECT_STATE.md`, Git tags, and `../docs/archive/updates/CANDIDATES_FULL_2026-09-01.md`.
 
-## Highest priority
+No new gameplay batch is currently approved.
 
-### U-009 — 抓边回场（0.1.7实现，0.1.8撤回，重新开放）
+## Validation before another feature batch
 
-⚠️ **重做前必须先解决人机行为**：`BotController` 没有挂边感知，人机会在边缘反复「抓住→超时→坠落→再抓住」，看起来卡死。恢复实现见 `v0.1.7` 标签，但必须配套AI的挂边状态与主动脱手决策，否则问题重现。
+### V-001 — Prototype 0.2.5 balance and readability
 
-### U-011 — 已在0.1.7完成：屏外方向指示
+- Test random-drop pacing at 5.5–9.5 seconds with the three-slot cap.
+- Re-test the sniper after its damage reduction and Scatter at point-blank range.
+- Confirm the dusk skyline stays calm and fighters, projectiles and platform edges remain readable.
+- Record camera comfort, bot behavior and the client's visible round-trip input latency.
 
-本机玩家离开画面时在屏幕边缘显示方向标记。
+### V-002 — Four-player online validation
 
-## Carried over from 0.1.4 playtest (balance, not yet approved)
+Relay play is hands-on verified with two instances only. A full four-player room still needs seat, movement, shooting, drop, elimination, rematch and disconnect validation.
 
-### U-015 — Scatter point-blank burst
+## Maintenance candidates
 
-All five pellets connect at contact range for 17.5 internal damage and 6.25 base knockback in one trigger pull, before the health multiplier. Consider fewer pellets, lower per-pellet knockback, or close-range falloff.
+These are technical hardening tasks, not new gameplay:
 
-### U-016 — 已作废：火箭已被狙击枪取代
+### M-001 — Deterministic generated scene
 
-火箭在 0.2.3 换成狙击枪，不再有溅射，自伤问题随之消失。`PrototypeProjectile.Explode` 与 `ExplosionRadius` 参数保留，但当前没有武器使用，将来加溅射武器时可直接复用。
+`PrototypeSceneBuilder.BuildWindows` currently regenerates scene object file IDs, leaving a semantic no-op diff in `Assets/Scenes/Prototype.unity`. Make repeated builds stable before relying on a clean-worktree version check.
 
-### U-017 — 已在0.1.7完成：出界边界收紧与火箭穿台
+### M-002 — Connection-establishment regression test
 
-边界收紧到 |x|>13 / y<-6，弹丸可从下方穿过单向平台。收紧幅度是否过严仍需试玩。
+`CheckConnectionLost` correctly waits until a client has connected once before treating a later disconnect as connection loss. Add an automated state-transition test; current coverage is manual two-instance verification rather than a dedicated assertion.
 
-## Requested 2026-09-02 — visual and level pass (record only, not approved)
+### M-003 — Stronger knockback regression test
 
-用户在0.1.5试玩后提出：优化画面与背景，并把平台做得更复杂。以下为拆解后的候选，**尚未批准实施**。
+The current assertion proves that the control lock engages, but does not simulate a physics step or verify that launch velocity survives movement processing. Extend coverage without changing established feel values.
 
-### U-018 — 已于2026-09-02解决：选定"几何战士"
+## Deferred gameplay and design candidates
 
-抽象几何方向已确定，见 `GAME_VISION.md` 与 `DECISIONS.md` D-019。美术批次的阻塞项解除。附带结果：角色与场景不再需要任何第三方素材，`ASSET_POLICY` 的授权风险在这一层消失。
+The entries below require explicit approval before implementation.
 
-### U-019 — 程序化部分已在0.1.6完成；贴图部分留待0.1.7
+### U-009 — Ledge recovery
 
-不需要任何第三方素材或方向决定，全部仍是程序化生成：
+The 0.1.7 implementation was withdrawn in 0.1.8 because bots repeatedly grabbed, timed out and re-grabbed edges. Any return must include AI hang awareness, escape/release decisions and anti-loop coverage.
 
-- 材质分层：现在所有物体共用同一套Lit/Unlit纯色材质，缺少金属度/粗糙度差异，导致平台、角色、背景质感雷同。
-- 光照：加边缘光/轮廓光把角色从背景剥离；当前只有一主一辅两盏平行光。
-- 背景视差：现有山峰、天际线、月亮是静止的，可随镜头做轻微视差位移，强化2.5D纵深。
-- 平台边缘可读性：出界是主要败因，平台边界应更明确（边缘高亮条、危险色渐变）。
-- 弹丸与拾取物的辉光/对比度，确保在更复杂的背景上依然醒目。
+### U-014 — Low-gravity/moon mode
 
-⚠️ 风险：背景越复杂，角色和子弹越容易被淹没。派对格斗游戏的美术必须服从可读性，**任何背景升级都要同步验证角色轮廓与弹丸是否仍然一眼可见**。
+Create a separate ruleset rather than altering base-mode gravity. Depends on an approved mode batch and preferably U-028.
 
-### U-020 — 竞技场结构复杂化（静态布局已在0.1.6完成，移动平台仍未做）
+### U-015 — Scatter point-blank balance
 
-当前只有1块主平台+3块对称静止单向平台，路线单一。按 `GAME_VISION.md` 已列方向：
+All pellets can connect at contact range. Re-test on the current arena before choosing fewer pellets, lower per-pellet damage/knockback or close-range falloff.
 
-- 非对称、多层次布局，制造不同的上下路线和视野死角。
-- 可移动平台。
-- 临时掩体 / 少量可破坏结构。
-- 阶段性场地变化，让中央不永远是唯一最优位置。
+### U-020 / U-025 — Moving and rotating platforms
 
-建议先做**非对称多层静态布局**（成本低、玩法收益最大），移动平台放在其后单独验证。
+Requires rewriting the one-way-platform height/carry logic before platforms can move reliably.
 
-⚠️ 技术前置：`OneWayPlatform` 目前缓存静态 `Top` 高度，`FighterMotor.UpdateOneWayCollisions` 每帧按该高度切换 `Physics.IgnoreCollision`。**平台一旦会移动，这套逻辑必须先改**，否则穿透判定会错乱；移动平台带动角色也需要额外处理。
+### U-022 — Production-quality combat audio and feedback
 
-### U-021 — 已在0.1.6完成：ArenaBuilder 已拆出
+Current hitstop, camera shake and procedural audio remain prototype-level. Any presentation change still requires hands-on confirmation.
 
-`PrototypeBootstrap.cs` 已被交接报告标记为职责过多、联网前必须拆分。它现在同时负责建场景、建角色、比赛生命周期、HUD和烟雾断言。**在往里继续堆关卡内容之前**，应先抽出 `ArenaBuilder` 和数据化的关卡定义，否则关卡越复杂，重赛/对象生命周期出错的概率越高，后续联网重构成本也越大。
+### U-024 — Infection mode
 
-### U-022 — 打击感与音效升级
+Requires contact rules, team conversion, scoring, mode-specific state visuals and U-028.
 
-程序化占位音效和当前的命中反馈仍是原型级。可考虑命中停顿(hitstop)、屏幕震动、更分层的音效。与美术方向无关，可独立进行。
+### U-026 — Battle-royale mode
 
-## 模式路线图（2026-09-02记录，均未批准实施）
+Requires a larger arena, shrinking-play-area rules, more content and higher player-count validation; depends on U-028.
 
-用户希望这是一款多模式派对对战游戏。抽象几何身份使得任何模式都无需在设定上自圆其说。以下按建议顺序排列，**一次只做一个**，每个都要单独调到好玩。
+### U-027 — Power-weapon mode
 
-### U-023 — 已在0.1.7完成：角色几何形态
+A lower-cost rules variant, but still requires U-028 and explicit approval.
 
-立方体/球体/四面体/圆柱体四种形态与朝向眼已落地，物理胶囊未改。
+### U-028 — Mode framework
 
-### U-024 — 生化感染模式
+Extract pluggable win conditions, scoring, spawn rules, HUD and per-mode camera behavior before implementing a second mode. Do not begin without approval.
 
-被接触者转化为感染方，继续感染他人得分。⚠️ **核心动词是接触而非射击，这是另一套战斗系统**，不是换个胜负条件那么简单：需要接触判定、阵营切换、感染方与幸存方的不同目标与计分。视觉上用形体崩坏表达感染状态，不依赖UI。
+### U-029 — Online lobby/waiting room
 
-### U-025 — 旋转与移动平台模式
+Show joined players, mode and bot settings, readiness and host-controlled start. Do not begin without approval.
 
-转盘和移动平台上的战斗。⚠️ **技术前置**：`OneWayPlatform` 目前缓存静态 `Top` 高度，`FighterMotor.UpdateOneWayCollisions` 每帧据此切换穿透。平台可动前必须重写这套逻辑，另外还需处理移动平台带动角色。
+### U-030 — Client prediction
 
-### U-026 — 逃杀模式
+Prediction requires input buffering, replay, reconciliation and smoothing. Treat it as an isolated high-risk networking batch; do not begin without approval.
 
-更大场地与收缩机制。依赖更多关卡内容和人数支持，建议排在联网之后。
+## Completed identifiers
 
-### U-027 — 强力武器模式
-
-高强度武器狂欢局。相对最便宜，主要是数值与刷新规则的变体，可作为验证"模式框架"的第一个低成本试点。
-
-### U-028 — 模式框架与每模式镜头
-
-上述模式需要一个统一的规则框架（胜负条件、计分、出生、HUD可插拔），否则每加一个模式都要改 `PrototypeBootstrap`。当前镜头为固定2.5D侧视，不同模式可能需要不同视角，每套都是独立工程量。**建议在做第二个模式之前先抽出这个框架。**
-
-### U-029 — 联机等待室（用户2026-09-02提出，放入后续版本）
-
-当前房主开房后直接进入对局，其他人中途加入会触发一次重开。目标是先进等待室：看到所有已加入玩家的名字、选择模式与机器人数量，全部就位后由房主开始。这也顺带解决"加入时机不对齐"的问题。
-
-### U-030 — 客户端预测
-
-客户端目前没有预测，自己的移动要等一个来回才响应，实测可感知。`GAME_VISION` 已把「客户端预测自身移动、插值显示其他玩家」列为方向。⚠️ 预测需要输入重放与状态回滚，容易引入抖动，应作为独立批次谨慎处理。
-
-## Following candidates
-
-### U-007 — 已在0.2.x完成并实测通过
-
-Relay 主机/加入、座位分配、状态与开火同步、结算画面、断线返回菜单均已由用户双实例实测。**从未测试过 4 人满员**，目前只验证到 2 人。
-
-剩余未做：客户端预测（U-030）、等待室（U-029）、房间列表、重连。
-
-### U-014 — Low-gravity party mode
-
-Create a separate moon/low-gravity ruleset.
-
-## Completed candidate groups
-
-- U-003–U-006: platforms, fighter collision rules, hidden values and AI difficulty presets.
-- U-012–U-013: shooting feedback, AI behavior, hit impact and air-combat tuning.
-- U-008: immediate-start stock match, final elimination, winner and rematch loop.
-- U-010: Pulse SMG, Scatter Blaster and Rocket Launcher fixed pickup loop.
-- 0.2.5: 随机武器掉落（取代固定点）、CC0 武器与城市素材、黄昏天际线、狙击枪取代火箭并削弱、开局手枪。
-- 0.2.3: 联机体验修复（断线检测误踢、客户端生命/比赛状态/拾取/护盾同步）、空房间、房主专属设置、房间码复制。
-- 0.2.0: Netcode for GameObjects + Relay 主机/加入。
-- 0.1.11: 受击硬直修复击退被移动控制抵消的长期缺陷、移除角色发光边框及其死代码。
-- 0.1.10: PrototypeJelly 材质资产（修复0.1.9运行时透明切换静默失败）、透明度回归断言、边框颜色修正。
-- 0.1.9: 果冻半透明材质与弹簧颤动、Bloom降至阈值1.15/强度0.5、死亡与重击的果冻碎裂爆开、命中飞溅用被击者颜色。
-- 0.1.8: Bloom后处理与霓虹材质、按形态发光边框、竞技场霓虹化、按武器区分的手持造型、asmdef URP引用修复。
-- 0.1.7: 几何战士形态(U-023)、抓边回场(U-009)、屏外指示(U-011)、出界边界与火箭穿台(U-017)。
-- 0.1.6: ArenaBuilder extraction (U-021), six-platform asymmetric layout (U-020 static part), 1-3 bot free-for-all, hitstop and camera shake (U-022 partial), and the direction-neutral visual pass (U-019).
-- 0.1.5: muzzle-flash collider fix (projectiles self-destructed at the barrel), auto-rematch, respawn protection shield and balanced auto-zoom camera.
-- U-011 partial: arena-anchored local-player soft-follow camera; offscreen direction guidance remains active.
+- U-035 local three-player mixed input: integrated into 0.3.0 with P1 keyboard, P2/P3 as separate Input System gamepads, no AI, three-target camera, device names/disconnect warning and three-seat assertions. Live Windows detection confirmed Xbox Controller + DualSense Wireless Controller; physical button gameplay remains user hands-on.
+- U-034 local two-player milestone: implemented in 0.3.0 with two human seats/no AI, P1 keyboard, P2 controller/keyboard fallback, shared camera and separate offscreen indicators. The same milestone now includes LT/RT firing, physical weapon-specific shooter recoil and display settings up to 4K/Borderless. P2 movement and A jump passed hands-on; the integrated refinements remain pending hands-on confirmation.
+- U-033 sniper identity tuning: implemented in 0.2.6 with knockback `(6.4,2.2)` → `(7.0,2.4)` and cooldown `1.5s` → `1.7s`; damage remains10 and ammo remains3. Hands-on feel pending.
+- U-032 arena-space tuning: implemented in 0.2.6; every combat platform is 10% wider on X and ring-out bounds are extended to `|x|>19 / y<-9.5` so air control and double jump can recover. Hands-on feel pending.
+- U-031 transparent cloud/fog approach: invalidated after hands-on review because jelly transparency made the shapes look reflective. Keep the 0.2.5 background simple; do not restore this approach.
+- U-007 Host/Join proof: completed and verified with two instances; four-player testing is V-002.
+- U-011 local-player offscreen guidance: completed in 0.1.7.
+- U-016 rocket-specific issue: obsolete because the rocket was replaced by the sniper.
+- U-017 tighter ring-out bounds and projectiles passing through one-way platforms: completed in 0.1.7.
+- U-018/U-019/U-021/U-023: Geometry Fighters direction, visual pass, ArenaBuilder extraction and geometric bodies are complete.

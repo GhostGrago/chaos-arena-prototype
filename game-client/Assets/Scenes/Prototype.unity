@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &465522532
+--- !u!1 &1630511452
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,10 +127,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 465522536}
-  - component: {fileID: 465522535}
-  - component: {fileID: 465522534}
-  - component: {fileID: 465522533}
+  - component: {fileID: 1630511456}
+  - component: {fileID: 1630511455}
+  - component: {fileID: 1630511454}
+  - component: {fileID: 1630511453}
   m_Layer: 0
   m_Name: Network Manager
   m_TagString: Untagged
@@ -138,26 +138,26 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &465522533
+--- !u!114 &1630511453
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 465522532}
+  m_GameObject: {fileID: 1630511452}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eb34a56b6980c4344b6170bf2aa57140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ChaosArena.Runtime::ChaosArena.NetworkSession
   MatchPrefab: {fileID: 5351841336220923475, guid: 4a68401e1f8f82c49af6f035bb25bd60, type: 3}
---- !u!114 &465522534
+--- !u!114 &1630511454
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 465522532}
+  m_GameObject: {fileID: 1630511452}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6960e84d07fb87f47956e7a81d71c4e6, type: 3}
@@ -182,13 +182,13 @@ MonoBehaviour:
     PacketDelayMS: 0
     PacketJitterMS: 0
     PacketDropRate: 0
---- !u!114 &465522535
+--- !u!114 &1630511455
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 465522532}
+  m_GameObject: {fileID: 1630511452}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
@@ -197,7 +197,7 @@ MonoBehaviour:
   NetworkManagerExpanded: 0
   NetworkConfig:
     ProtocolVersion: 0
-    NetworkTransport: {fileID: 465522534}
+    NetworkTransport: {fileID: 1630511454}
     PlayerPrefab: {fileID: 0}
     Prefabs:
       NetworkPrefabsLists:
@@ -224,13 +224,13 @@ MonoBehaviour:
     OldPrefabList: []
   RunInBackground: 1
   LogLevel: 1
---- !u!4 &465522536
+--- !u!4 &1630511456
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 465522532}
+  m_GameObject: {fileID: 1630511452}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -239,7 +239,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1594058694
+--- !u!1 &2080461813
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -247,8 +247,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1594058696}
-  - component: {fileID: 1594058695}
+  - component: {fileID: 2080461815}
+  - component: {fileID: 2080461814}
   m_Layer: 0
   m_Name: Prototype Bootstrap
   m_TagString: Untagged
@@ -256,25 +256,25 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1594058695
+--- !u!114 &2080461814
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1594058694}
+  m_GameObject: {fileID: 2080461813}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9a2fa60532dd86748b2877403fa16d32, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ChaosArena.Runtime::ChaosArena.PrototypeBootstrap
---- !u!4 &1594058696
+--- !u!4 &2080461815
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1594058694}
+  m_GameObject: {fileID: 2080461813}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -287,5 +287,5 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1594058696}
-  - {fileID: 465522536}
+  - {fileID: 2080461815}
+  - {fileID: 1630511456}

@@ -35,6 +35,7 @@ namespace ChaosArena
         private float controlLockUntil;
         private const float GroundKnockbackDrag = 5f;
         private const float AirKnockbackDrag = 1.2f;
+        private const float ShooterRecoilVelocityScale = 4f;
 
         public int Facing => facing;
         public bool IsGrounded { get; private set; }
@@ -61,6 +62,21 @@ namespace ChaosArena
         public void ApplyKnockbackStun(float seconds)
         {
             controlLockUntil = Mathf.Max(controlLockUntil, Time.time + seconds);
+        }
+
+        /// <summary>
+        /// Converts the weapon's small recoil tuning value into a brief physical shove. The short control lock
+        /// prevents normal movement acceleration from erasing that shove on the very next physics step.
+        /// </summary>
+        public void ApplyShooterRecoil(PrototypeWeaponProfile profile)
+        {
+            float velocityChange = profile.ShooterRecoil * ShooterRecoilVelocityScale;
+            body.linearVelocity = new Vector3(
+                body.linearVelocity.x - facing * velocityChange,
+                body.linearVelocity.y,
+                0f);
+            float momentumWindow = Mathf.Lerp(0.055f, 0.12f, Mathf.Clamp01(profile.ShooterRecoil / 1.25f));
+            ApplyKnockbackStun(momentumWindow);
         }
         public PrototypeWeaponId WeaponId => weapon.Id;
         public string WeaponName => weapon.Name;
@@ -161,7 +177,7 @@ namespace ChaosArena
                     NetMatch.Instance.BroadcastShot(SeatIndex, weapon.Id, muzzle, new Vector3(facing, 0f, 0f));
                 }
 
-                body.AddForce(Vector3.left * (facing * weapon.ShooterRecoil), ForceMode.VelocityChange);
+                ApplyShooterRecoil(weapon);
                 GetComponent<FighterVisual>()?.OnFire(weapon.VisualRecoil);
                 CombatVfx.Muzzle(muzzle, facing, weapon.ProjectileColor);
                 PrototypeAudio.PlayShot(muzzle);

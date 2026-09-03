@@ -65,7 +65,7 @@ namespace ChaosArena
         /// launch range almost immediately. Damage and shot count come down while the hit stays heavy.
         /// </summary>
         public static PrototypeWeaponProfile Sniper => new(
-            PrototypeWeaponId.Sniper, "SNIPER", 1.5f, 46f, 10f, new Vector3(6.4f, 2.2f, 0f),
+            PrototypeWeaponId.Sniper, "SNIPER", 1.7f, 46f, 10f, new Vector3(7f, 2.4f, 0f),
             1.25f, 0.5f, new Color(1f, 0.86f, 0.16f), 3, projectileScale: 1.1f);
 
         public static PrototypeWeaponProfile Get(PrototypeWeaponId id) => id switch

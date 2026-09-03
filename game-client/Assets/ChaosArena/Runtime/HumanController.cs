@@ -1,15 +1,37 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace ChaosArena
 {
+    public enum LocalInputSlot { PlayerOne, PlayerTwo, PlayerThree }
+
     /// <summary>
-    /// Reads the keyboard for the local player. Offline and on the host the input drives the motor directly;
-    /// on a client it is sent to the host instead, because the host is authoritative over movement.
+    /// Reads one local input slot. Player one uses keyboard; players two and three use distinct Gamepad
+    /// devices from the Input System. P2 keeps an alternate keyboard layout for controller-free testing.
     /// </summary>
     [RequireComponent(typeof(FighterMotor))]
     public sealed class HumanController : MonoBehaviour
     {
         private FighterMotor motor;
+        private LocalInputSlot inputSlot;
+        private bool secondPlayerDownHeld;
+
+        public LocalInputSlot InputSlot => inputSlot;
+
+        public void Configure(LocalInputSlot slot)
+        {
+            inputSlot = slot;
+        }
+
+        public static int ConnectedControllerCount => Gamepad.all.Count;
+        public static bool ControllerConnected => ConnectedControllerCount > 0;
+
+        public static string ControllerName(int controllerIndex)
+        {
+            return controllerIndex >= 0 && controllerIndex < Gamepad.all.Count
+                ? Gamepad.all[controllerIndex].displayName
+                : "NOT CONNECTED";
+        }
 
         private void Awake()
         {
@@ -18,13 +40,42 @@ namespace ChaosArena
 
         private void Update()
         {
-            float horizontal = 0f;
-            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) horizontal -= 1f;
-            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) horizontal += 1f;
+            float horizontal;
+            bool jump;
+            bool drop;
+            bool fire;
 
-            bool jump = Input.GetKeyDown(KeyCode.Space);
-            bool drop = Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow);
-            bool fire = Input.GetKey(KeyCode.J) || Input.GetKey(KeyCode.LeftControl);
+            if (inputSlot != LocalInputSlot.PlayerOne)
+            {
+                int controllerIndex = inputSlot == LocalInputSlot.PlayerTwo ? 0 : 1;
+                Gamepad gamepad = controllerIndex < Gamepad.all.Count ? Gamepad.all[controllerIndex] : null;
+                float stick = gamepad != null ? gamepad.leftStick.x.ReadValue() : 0f;
+                horizontal = Mathf.Abs(stick) >= 0.18f ? stick : 0f;
+                bool keyboardFallback = inputSlot == LocalInputSlot.PlayerTwo;
+                if (keyboardFallback && Input.GetKey(KeyCode.LeftArrow)) horizontal = -1f;
+                if (keyboardFallback && Input.GetKey(KeyCode.RightArrow)) horizontal = 1f;
+
+                bool stickDown = gamepad != null && gamepad.leftStick.y.ReadValue() < -0.65f;
+                jump = (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame) ||
+                       (keyboardFallback && Input.GetKeyDown(KeyCode.UpArrow));
+                drop = (gamepad != null && gamepad.buttonEast.wasPressedThisFrame) ||
+                       (keyboardFallback && Input.GetKeyDown(KeyCode.DownArrow)) ||
+                       (stickDown && !secondPlayerDownHeld);
+                fire = (gamepad != null &&
+                        (gamepad.leftTrigger.ReadValue() > 0.35f || gamepad.rightTrigger.ReadValue() > 0.35f ||
+                         gamepad.buttonWest.isPressed || gamepad.rightShoulder.isPressed)) ||
+                       (keyboardFallback && (Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.Keypad0)));
+                secondPlayerDownHeld = stickDown;
+            }
+            else
+            {
+                horizontal = 0f;
+                if (Input.GetKey(KeyCode.A)) horizontal -= 1f;
+                if (Input.GetKey(KeyCode.D)) horizontal += 1f;
+                jump = Input.GetKeyDown(KeyCode.Space);
+                drop = Input.GetKeyDown(KeyCode.S);
+                fire = Input.GetKey(KeyCode.J) || Input.GetKey(KeyCode.LeftControl);
+            }
 
             NetMatch net = NetMatch.Instance;
             bool isRemoteClient = net != null && net.IsSpawned && !net.IsServer;

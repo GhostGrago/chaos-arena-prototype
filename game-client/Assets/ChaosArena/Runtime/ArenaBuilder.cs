@@ -10,6 +10,8 @@ namespace ChaosArena
     /// </summary>
     public static class ArenaBuilder
     {
+        private const float PlatformWidthScale = 1.1f;
+
         // ambientCG MetalPlates006 (CC0, TP-002 in ASSET_POLICY). Only colour and normal are used; metallic
         // and smoothness stay uniform so platforms keep a consistent look under the neon lighting.
         private static Texture2D platformAlbedo;
@@ -39,13 +41,13 @@ namespace ChaosArena
         /// </summary>
         public static readonly PlatformDefinition[] Layout =
         {
-            new("Main Platform", new Vector3(0f, -0.25f, 0f), new Vector3(19f, 1f, 3f), false),
-            new("Left Low Platform", new Vector3(-7f, 2.4f, 0f), new Vector3(4.6f, 0.6f, 3f), true),
-            new("Right Low Platform", new Vector3(5.8f, 2f, 0f), new Vector3(5.2f, 0.6f, 3f), true),
-            new("Center Mid Platform", new Vector3(-1.2f, 4.5f, 0f), new Vector3(3.8f, 0.6f, 3f), true),
-            new("Right High Platform", new Vector3(6.6f, 5.2f, 0f), new Vector3(3.4f, 0.6f, 3f), true),
-            new("Left High Platform", new Vector3(-6.2f, 6.4f, 0f), new Vector3(3f, 0.6f, 3f), true),
-            new("Top Platform", new Vector3(1f, 7.6f, 0f), new Vector3(3.6f, 0.6f, 3f), true)
+            new("Main Platform", new Vector3(0f, -0.25f, 0f), new Vector3(19f * PlatformWidthScale, 1f, 3f), false),
+            new("Left Low Platform", new Vector3(-7f, 2.4f, 0f), new Vector3(4.6f * PlatformWidthScale, 0.6f, 3f), true),
+            new("Right Low Platform", new Vector3(5.8f, 2f, 0f), new Vector3(5.2f * PlatformWidthScale, 0.6f, 3f), true),
+            new("Center Mid Platform", new Vector3(-1.2f, 4.5f, 0f), new Vector3(3.8f * PlatformWidthScale, 0.6f, 3f), true),
+            new("Right High Platform", new Vector3(6.6f, 5.2f, 0f), new Vector3(3.4f * PlatformWidthScale, 0.6f, 3f), true),
+            new("Left High Platform", new Vector3(-6.2f, 6.4f, 0f), new Vector3(3f * PlatformWidthScale, 0.6f, 3f), true),
+            new("Top Platform", new Vector3(1f, 7.6f, 0f), new Vector3(3.6f * PlatformWidthScale, 0.6f, 3f), true)
         };
 
         public static void Build()

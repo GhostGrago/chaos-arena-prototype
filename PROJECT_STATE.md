@@ -1,6 +1,6 @@
 # PROJECT STATE — 原创2.5D在线平台射击游戏
 
-Updated: 2026-09-01  
+Updated: 2026-09-02
 Project root: `C:\Users\17141\OneDrive\Document\ChatGPT\Game`  
 Workflow: `BUILD / STANDARD`
 
@@ -16,14 +16,14 @@ Normal startup requires only this file and `NEXT_TASKS.md`. Historical evidence 
 
 ## Current phase
 
-Prototype 0.2.5: online host/join verified, random weapon drops, CC0 weapon and city art, dusk skyline.
+Prototype 0.3.0: local two-player milestone, including controller refinement, physical shooter recoil and display settings; final hands-on pending.
 
 ## Current status
 
 - Project workflow initialized.
 - Initial game vision, feature direction, and vertical-slice boundary are drafted in `GAME_VISION.md`.
-- The visual/worldbuilding direction is awaiting user selection.
-- Static triage identified one uncompressed SWF v9 containing embedded bitmap, vector, text, font, sound, sprite, and ActionScript 2 tags; extraction has not started.
+- The visual identity is selected: abstract `Geometry Fighters` with translucent jelly-like primitive solids (D-019).
+- The Flash reference is research-only. Its code and assets are excluded from this public original project and must not enter a build or repository commit.
 - Unity Hub 3.21.0 and Unity Editor 6000.5.10f1 are installed. The project is pinned to this Update release and URP 17.5.0.
 - The separate `game-client/` Unity project imports and compiles successfully, generates `Prototype.unity`, builds a Windows player, and passes an automated runtime initialization smoke test.
 - Prototype 0.1.1 retains 2D-plane gameplay while adding a perspective camera, layered 3D background, platform depth/supports, lighting/fog, and articulated primitive-built fighters with simple procedural movement.
@@ -31,7 +31,7 @@ Prototype 0.2.5: online host/join verified, random weapon drops, CC0 weapon and 
 - Prototype 0.1.2 implements U-003 one-way platforms, U-004 non-colliding player bodies, U-005 hidden HP/knockback values and projectile accumulation 11→9, U-006 Easy/Normal/Hard bot presets defaulting to Easy, and U-012 layered shooting feedback with data-driven recoil. Windows build, headless runtime smoke, and direct window rendering passed; subjective movement/AI/weapon tuning remains.
 - Prototype 0.1.3 addresses the first 0.1.2 feedback: AI now selects approach/hold/reposition/edge-escape tactics, Easy uses useful multi-shot bursts, base hit impulse is about 20% stronger, hit flash/sparks/stretch are more visible, jump speed is 10.8, and staged gravity extends ascent/apex control while retaining a firm fall. Windows build, headless smoke, and a 12-second ordinary runtime check passed; subjective tuning remains.
 - Prototype 0.1.4 removes the sandbox's automatic stock refill: final stock loss stops combat, displays a winner, and supports immediate `R` rematch without a start countdown. It adds an arena-anchored camera that follows only the local player by a small clamped amount, plus fixed pickups for a 32-round Pulse SMG, 8-shot five-pellet Scatter Blaster, and 5-rocket explosive launcher. Build, dedicated match/reset assertions, smoke, and direct window rendering passed; balance remains subjective.
-- Claude continuation materials are current: root `CLAUDE.md` provides automatic startup guidance and `docs/2026-09-01_工程交接-Claude-report.md` contains the full reproducible engineering handoff.
+- Current continuation materials are root `CLAUDE.md` and `docs/2026-09-02_工程交接-Claude-0.3.0-report.md`; the older Codex report is 0.2.5 architecture history.
 - Prototype 0.1.5 fixes the reported "sparks but no bullet" defect: combat VFX kept a live collider for the rest of the frame, so each projectile triggered against its own muzzle flash and destroyed itself at the barrel. Colliders are now disabled before being destroyed, projectiles ignore VFX, and a smoke assertion guards the regression. It also adds auto-rematch 2.5s after the final elimination, a bright rotating respawn-protection ring that only blinks as it expires, and a camera that balances the local fighter against the arena centre while pulling back automatically near ring-out edges. Build and smoke passed; feel is unverified.
 - Prototype 0.1.6 extracts ArenaBuilder from PrototypeBootstrap and moves the level to a data-driven layout of six asymmetric one-way platforms. Bot count is adjustable from 1 to 3 with last-fighter-standing rules, bots retarget the nearest living rival instead of always the player, and the HUD covers up to four fighters. Adds CombatFeel hitstop and camera shake, plus a procedural visual pass: per-layer metallic/smoothness, a rim light, background parallax and bright platform edges. No external assets were introduced. Build and smoke passed; the new layout invalidates earlier balance conclusions and needs fresh playtesting.
 - Prototype 0.1.7 lands the Geometry Fighters identity from D-019: fighters become distinct primitive solids (cube, sphere, generated tetrahedron, cylinder) with a glowing eye for facing, and FighterVisual moves from limb swing to squash, tumble and wobble so personality comes from motion. The physics capsule is unchanged. It adds U-009 ledge recovery with a time-limited hang and re-grab cooldown, U-011 offscreen guidance for the local player, and tightens ring-out bounds to |x|>13 / y<-6 while letting projectiles pass up through one-way platforms. Build and smoke passed; the ledge grab window still needs hands-on confirmation.
@@ -41,12 +41,18 @@ Prototype 0.2.5: online host/join verified, random weapon drops, CC0 weapon and 
 - Prototype 0.1.11 is the first build the user has hands-on verified: the ESC menu opens and quits correctly, pressing ESC during a hitstop no longer lets the game unfreeze behind the menu, weakened respawn protection gives visible feedback, and knockback now visibly moves a grounded advancing bot. It also fixes a long-standing defect where knockback appeared to do nothing. FighterMotor overwrites horizontal velocity every physics step, so ground acceleration of 35/s cancelled a 3.25 carbine impulse in about 0.09s; the effect was worst against a grounded, actively moving bot, which is exactly what the player fights. A control lock now suspends movement for 0.15-0.45s scaled by impulse, preserving momentum under light drag, with an assertion covering the mechanism. The fighter edge frame added in 0.1.8 read as a cage around the jelly body and is removed along with its now-dead builder code; platform neon edges stay because they serve ring-out readability.
 - Prototype 0.2.0 adds online host and join. Relay was chosen over direct IP because the host sits behind NAT and GAME_VISION rules out port forwarding as the default experience. Because the arena and fighters are built at runtime and cannot be network prefabs, replication runs through a single scene NetMatch object: clients push input up and the host broadcasts all four fighters' state at 25Hz. The host owns physics, AI and match rules; clients are pure presentation with kinematic bodies. A main menu now offers solo, host and join. Offline play is unchanged and all previous assertions still pass. ONLINE IS COMPLETELY UNTESTED and cannot run until cloudProjectId is set by linking a Unity Cloud project and enabling Relay.
 - Prototype 0.2.5 is verified online by hand across two instances: host/join over Relay, position and animation sync, replicated shots, winner screen and disconnect-to-menu all work. Rooms open empty so a joining player is not padded out with bots, difficulty and bot count are host-only in the pause menu, and the room code has copy/paste. The rocket became a sniper and was then toned down by cutting damage rather than knockback, since internal damage drives the knockback multiplier. Fixed pickup points became random timed drops that are consumed rather than respawning in place. Art now uses three CC0 packs (TP-001..003): Kenney weapon models, ambientCG platform plates, and Kenney city buildings for a calm dusk skyline after a first neon attempt read as glare. Client prediction, a lobby and the mode framework remain unbuilt.
-- The collaboration workflow is local-first and version-batched: suggestions are collected before an approved iteration, Codex and Claude share the local project state, and GitHub is compared before and after synchronization. On 2026-09-02, clean local `main`, remote `origin/main`, and peeled tag `v0.1.4` matched commit `63cbbe66ca09d864e8a86517f1506361eef1c407`.
+- An earlier local cloud/fog experiment was rejected during hands-on review and withdrawn before commit: transparent jelly-based atmosphere read as reflective shapes. It is not present in the current build.
+- Prototype 0.2.6 widens all seven combat platforms by exactly 10% on the X axis while preserving centers, heights, thickness, physics and background. Ring-out bounds move from `|x|>13 / y<-6` to `|x|>19 / y<-9.5`, leaving room for air control and a second jump. Windows build and `-chaosSmokeTest` passed with width and recovery-space assertions; hands-on feel remains pending.
+- Prototype 0.2.6 sniper tuning raises base knockback from `(6.4, 2.2)` to `(7.0, 2.4)` and slows cooldown from 1.5s to 1.7s. Damage stays at 10 so the change improves single-shot launch identity without accelerating the global damage-to-knockback ramp. Windows build and smoke passed with the sniper identity assertion; hands-on feel remains pending.
+- Prototype 0.3.0 adds a `LOCAL 2 PLAYERS` offline mode with exactly two human seats and no AI. P1 uses keyboard; P2 uses the first controller with an alternate keyboard layout. A shared arena-anchored camera frames both players and each receives a coloured offscreen indicator. Online seat behavior remains separate. Windows build and `-chaosSmokeTest` passed; physical-controller behavior and two-player camera feel remain hands-on unknowns.
+- The same Prototype 0.3.0 milestone incorporates its first controller-playtest refinements rather than advancing a patch version: P2 movement and A-button jumping are hands-on confirmed; LT/RT now fire while X/RB and keyboard fallbacks remain. Shooter recoil adds deterministic backward rigidbody velocity with a short momentum-preservation window. Display settings add 720p/900p/1080p/1440p/4K plus native resolution, Windowed/Borderless modes, persisted preferences and high-resolution UI scaling. The integrated Windows build and smoke pass; LT/RT, recoil feel and display switching remain hands-on pending.
+- U-035 is integrated into the same 0.3.0 local-multiplayer milestone. `LOCAL 3 PLAYERS` assigns P1 to keyboard, P2 to Input System gamepad 0 and P3 to gamepad 1, with no AI, a three-target camera, three offscreen indicators and a missing-device warning. Input System 1.19.0 is installed with old/new input enabled together. Windows build and smoke passed three-seat/input/camera assertions. An ordinary live run detected `Xbox Controller` and `DualSense Wireless Controller` simultaneously; physical button presses and three-person feel remain hands-on pending.
+- The collaboration workflow is local-first and version-batched. On 2026-09-02, local `main`, public `origin/main`, and peeled tag `v0.2.5` matched commit `ae0778f785414dea498c44426b3236a5ea0b3430` before the reproducibility build.
 
 ## Established results
 
 - Target platform: Steam.
-- Shipping format: online multiplayer; no same-device multiplayer feature.
+- Shipping format: local two-player plus 2–4 player online multiplayer.
 - Presentation: 2.5D movement and gameplay with 3D characters/environments.
 - Target party size: 2–4 players for the first release scope.
 - Engine: Unity 6000.5.10f1 Update, URP 17.5.0, Windows-first.
@@ -56,13 +62,14 @@ Prototype 0.2.5: online host/join verified, random weapon drops, CC0 weapon and 
 
 ## Unknown
 
-- Worldbuilding/art direction is selected: abstract geometric "Geometry Fighters" (D-019). Character forms and per-mode visual language are not yet implemented.
-- Networking is now Netcode for GameObjects over Unity Relay (0.2.0). Steam integration is still not selected.
-- Original project name is not selected.
-- Final health-to-knockback curve is not selected; Prototype 0.1 starts at 1.0x–3.5x.
+- Final commercial title and trademark availability are not selected.
+- Steam networking/integration is not selected; the prototype currently uses Netcode for GameObjects over Unity Relay.
+- Per-mode visual language remains undefined because no additional mode is approved.
+- Final health-to-knockback curve and weapon balance remain subjective playtest questions.
+- Four-player full-room behavior has not been tested; online verification currently covers two instances.
 
 ## Current frontier
 
-Playtest Prototype 0.1.4. Complete matches with each pickup and record weapon identity, ammo pacing, pickup contest value, final-elimination clarity, rematch reset reliability, respawn protection, and whether the local-player camera remains platform-centered during strong knockback.
+With the open integrated Prototype 0.3.0 build, select `LOCAL 3 PLAYERS` and test keyboard + detected Xbox + detected DualSense simultaneously. Confirm both controllers' movement/jump/drop/fire mappings, three-target camera, indicators and disconnect warning. Then finish recoil and display checks. Four-player online validation remains outstanding.
 
-U-009 ledge recovery and the remaining U-011 local-player offscreen indicator are the highest-priority candidates. U-007 networking, U-014 moon mode, art/worldbuilding and additional weapons remain later work.
+Local two-player is implemented by D-020 and awaits controller hands-on confirmation. The background remains deliberately simple; the U-031 transparent cloud/fog approach stays invalidated. The current priority is local match usability and core combat feel. No additional gameplay batch is approved. U-030 prediction, U-029 lobby, U-028 mode framework, U-009 ledge recovery, and all additional modes remain deferred until explicitly approved.

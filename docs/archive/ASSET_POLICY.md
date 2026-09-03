@@ -58,7 +58,7 @@
 | Attribution | 不要求；许可原文：「You can use this content for personal, educational, and commercial purposes.」 |
 | Allowed Use | 商业使用 / 修改 / 随游戏再分发 |
 | Replacement | 无需替换；CC0 可直接用于公开构建 |
-| 备注 | 仅使用网格。原始配色被运行时替换为本项目调色板，避免引入第二套美术语言。许可证原文随资产存放于 `Kenney-BlasterKit-License.txt`。 |
+| 备注 | 使用模型网格并保留包内 `colormap.png` 调色板贴图；不同武器的枪口方向由 `WeaponModels` 单独记录。许可证原文随资产存放于 `Kenney-BlasterKit-License.txt`。 |
 
 ### TP-002 — ambientCG MetalPlates006
 

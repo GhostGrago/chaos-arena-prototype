@@ -8,7 +8,8 @@
     "Unity.Networking.Transport",
     "Unity.Services.Core",
     "Unity.Services.Authentication",
-    "Unity.Services.Relay"
+    "Unity.Services.Relay",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
