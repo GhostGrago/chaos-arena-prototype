@@ -74,6 +74,7 @@ namespace ChaosArena
         {
             ArenaBuilder.Build();
             CombatFeel.Ensure();
+            pickups = gameObject.AddComponent<PickupDirector>();
 
             player = CreateFighter("PLAYER", FighterColors[0], SpawnPoints[0], FighterShapes[0]);
             player.gameObject.AddComponent<HumanController>();
@@ -110,7 +111,18 @@ namespace ChaosArena
 
         private void RunSmokeAssertions()
         {
-            if (WeaponPickup.All.Count != 3) throw new System.InvalidOperationException("Expected three weapon pickups.");
+            if (WeaponPickup.All.Count != PickupDirector.MaxSlots)
+            {
+                throw new System.InvalidOperationException("Expected one pickup slot per director slot.");
+            }
+
+            foreach (WeaponPickup slot in WeaponPickup.All)
+            {
+                if (slot.IsAvailable)
+                {
+                    throw new System.InvalidOperationException("Drops must start hidden and be scheduled by the director.");
+                }
+            }
             if (FindAnyObjectByType<ArenaCameraFollow>() == null) throw new System.InvalidOperationException("Missing local-player camera follow.");
             if (ArenaBuilder.Layout.Count(definition => definition.OneWay) < 5)
             {
@@ -132,7 +144,7 @@ namespace ChaosArena
             AssertPauseRestoresTime();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_0111_ASSERTIONS_PASS: pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_023_ASSERTIONS_PASS: random drops, pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -347,11 +359,12 @@ namespace ChaosArena
                 CheckRingOuts();
                 DriveNetworkedSeats();
                 RetargetBots();
+                pickups.HostTick();
             }
 
             if (Networked && NetMatch.Instance != null)
             {
-                NetMatch.Instance.HostBroadcast(roster, BuildMatchState());
+                NetMatch.Instance.HostBroadcast(roster, BuildMatchState(), BuildPickupStates());
             }
 
             if (matchEnded && autoRematchAt > 0f && Time.time >= autoRematchAt) StartMatch();
@@ -378,6 +391,7 @@ namespace ChaosArena
         private NetMatch hookedMatch;
         private int appliedHumanSeats = 1;
         private bool wasConnected;
+        private PickupDirector pickups;
 
         // Last seen remote vitals, used to spot hits and ring-outs on a client purely from state changes.
         private readonly float[] remoteHealth = new float[NetMatch.MaxFighters];
@@ -465,22 +479,30 @@ namespace ChaosArena
             PrototypeAudio.PlayShot(muzzle);
         }
 
-        private NetMatchState BuildMatchState()
+        private NetMatchState BuildMatchState() => new()
         {
-            byte mask = 0;
-            for (int i = 0; i < WeaponPickup.All.Count && i < 8; i++)
+            Ended = matchEnded,
+            WinnerSeat = (sbyte)(winner != null ? allFighters.IndexOf(winner) : -1),
+            Duration = matchDuration,
+            RestartIn = Mathf.Max(0f, autoRematchAt - Time.time)
+        };
+
+        private NetPickupState[] BuildPickupStates()
+        {
+            NetPickupState[] states = new NetPickupState[PickupDirector.MaxSlots];
+            for (int i = 0; i < states.Length && i < pickups.Slots.Count; i++)
             {
-                if (WeaponPickup.All[i] != null && WeaponPickup.All[i].IsAvailable) mask |= (byte)(1 << i);
+                WeaponPickup slot = pickups.Slots[i];
+                if (slot == null) continue;
+                states[i] = new NetPickupState
+                {
+                    Active = slot.IsAvailable,
+                    Weapon = (byte)slot.Weapon,
+                    Position = slot.Position
+                };
             }
 
-            return new NetMatchState
-            {
-                Ended = matchEnded,
-                WinnerSeat = (sbyte)(winner != null ? allFighters.IndexOf(winner) : -1),
-                Duration = matchDuration,
-                RestartIn = Mathf.Max(0f, autoRematchAt - Time.time),
-                PickupMask = mask
-            };
+            return states;
         }
 
         /// <summary>Feeds each remote player's input into the fighter they own. Host only.</summary>
@@ -515,10 +537,14 @@ namespace ChaosArena
                 ? allFighters[match.WinnerSeat]
                 : null;
 
-            for (int i = 0; i < WeaponPickup.All.Count && i < 8; i++)
+            for (int i = 0; i < pickups.Slots.Count && i < net.Pickups.Length; i++)
             {
-                WeaponPickup pickup = WeaponPickup.All[i];
-                if (pickup != null) pickup.SetRemoteAvailable((match.PickupMask & (1 << i)) != 0);
+                WeaponPickup slot = pickups.Slots[i];
+                NetPickupState drop = net.Pickups[i];
+                if (slot == null) continue;
+
+                if (drop.Active) slot.Configure(PrototypeWeaponProfile.Get((PrototypeWeaponId)drop.Weapon), drop.Position);
+                slot.SetRemoteAvailable(drop.Active);
             }
 
             for (int i = 0; i < allFighters.Count && i < NetMatch.MaxFighters; i++)
@@ -667,6 +693,7 @@ namespace ChaosArena
         {
             ClearProjectiles();
             WeaponPickup.ResetAll();
+            pickups.ResetCycle();
 
             roster.Clear();
             int humans = HumanSeats;
@@ -836,7 +863,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.2.3 — EMPTY ROOMS & HOST SETTINGS", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.2.5 — DUSK CITY & RANDOM DROPS", titleStyle);
 
             if (inMenu)
             {

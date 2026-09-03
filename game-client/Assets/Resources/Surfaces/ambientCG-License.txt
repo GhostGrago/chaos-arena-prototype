@@ -1,0 +1,10 @@
+﻿Third-party surface textures used by Chaos Arena Prototype.
+
+Source : https://ambientcg.com/view?id=MetalPlates006
+Author : ambientCG (Lennart Demes)
+License: Creative Commons CC0 1.0 Universal (public domain)
+
+"All ambientCG assets are provided under the Creative Commons CC0 1.0 Universal License."
+Commercial use, modification and redistribution inside a game are permitted without attribution.
+
+Files: platform_color.jpg (Color), platform_normal.jpg (NormalGL)

@@ -59,3 +59,29 @@
 | Allowed Use | 商业使用 / 修改 / 随游戏再分发 |
 | Replacement | 无需替换；CC0 可直接用于公开构建 |
 | 备注 | 仅使用网格。原始配色被运行时替换为本项目调色板，避免引入第二套美术语言。许可证原文随资产存放于 `Kenney-BlasterKit-License.txt`。 |
+
+### TP-002 — ambientCG MetalPlates006
+
+| 字段 | 值 |
+|---|---|
+| Filename | `game-client/Assets/Resources/Surfaces/platform_{color,normal}.jpg` |
+| Category | ThirdParty/Licensed |
+| Source | https://ambientcg.com/view?id=MetalPlates006 |
+| Author | ambientCG (Lennart Demes) |
+| License | Creative Commons Zero (CC0 1.0) |
+| Attribution | 不要求。许可原文：「All ambientCG assets are provided under the Creative Commons CC0 1.0 Universal License.」并明确允许「include the raw files in your project, for example a video game」 |
+| Allowed Use | 商业使用 / 修改 / 随游戏再分发 |
+| 备注 | 仅使用 Color 与 NormalGL 两张贴图，平铺按平台实际尺寸计算。许可证副本存于 `Surfaces/ambientCG-License.txt`。 |
+
+### TP-003 — Kenney City Kit (Commercial) 2.1
+
+| 字段 | 值 |
+|---|---|
+| Filename | `game-client/Assets/Resources/City/*.obj` 与 `citymap.png` |
+| Category | ThirdParty/Licensed |
+| Source | https://kenney.nl/assets/city-kit-commercial |
+| Author | Kenney (www.kenney.nl) |
+| License | Creative Commons Zero (CC0 1.0) |
+| Attribution | 不要求 |
+| Allowed Use | 商业使用 / 修改 / 随游戏再分发 |
+| 备注 | 仅取包内 `low-detail-building-*` 与 `building-skyscraper-*`，这些本就是为远景设计的低细节模型。背景建筑统一使用按层共享的平铺材质，不使用模型自带贴图，以保证远近层次靠色调区分。许可证副本存于 `City/Kenney-CityKit-License.txt`。 |

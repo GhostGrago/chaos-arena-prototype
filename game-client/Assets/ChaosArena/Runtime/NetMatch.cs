@@ -59,7 +59,6 @@ namespace ChaosArena
         public sbyte WinnerSeat;
         public float Duration;
         public float RestartIn;
-        public byte PickupMask;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -67,7 +66,21 @@ namespace ChaosArena
             serializer.SerializeValue(ref WinnerSeat);
             serializer.SerializeValue(ref Duration);
             serializer.SerializeValue(ref RestartIn);
-            serializer.SerializeValue(ref PickupMask);
+        }
+    }
+
+    /// <summary>One weapon drop. Position and type both vary now that drops are random.</summary>
+    public struct NetPickupState : INetworkSerializable
+    {
+        public bool Active;
+        public byte Weapon;
+        public Vector3 Position;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref Active);
+            serializer.SerializeValue(ref Weapon);
+            serializer.SerializeValue(ref Position);
         }
     }
 
@@ -101,6 +114,7 @@ namespace ChaosArena
         public int HumanSeats { get; private set; } = 1;
         public bool HasNetworkState { get; private set; }
         public NetMatchState MatchState { get; private set; }
+        public NetPickupState[] Pickups { get; private set; } = new NetPickupState[PickupDirector.MaxSlots];
 
         public NetFighterState GetState(int index) => received[index];
 
@@ -182,16 +196,19 @@ namespace ChaosArena
         }
 
         [Rpc(SendTo.NotServer, Delivery = RpcDelivery.Unreliable)]
-        private void BroadcastStateRpc(NetFighterState[] states, int humanSeats, NetMatchState matchState)
+        private void BroadcastStateRpc(NetFighterState[] states, int humanSeats, NetMatchState matchState,
+            NetPickupState[] pickups)
         {
             received = states;
             HumanSeats = humanSeats;
             MatchState = matchState;
+            Pickups = pickups;
             HasNetworkState = true;
         }
 
         /// <summary>Called by the host once per frame with the live fighter list.</summary>
-        public void HostBroadcast(IReadOnlyList<Fighter> fighters, NetMatchState matchState)
+        public void HostBroadcast(IReadOnlyList<Fighter> fighters, NetMatchState matchState,
+            NetPickupState[] pickups)
         {
             if (!IsServer || Time.time < nextSendTime) return;
             nextSendTime = Time.time + SendInterval;
@@ -217,7 +234,7 @@ namespace ChaosArena
                 };
             }
 
-            BroadcastStateRpc(states, HumanSeats, matchState);
+            BroadcastStateRpc(states, HumanSeats, matchState, pickups);
         }
 
         /// <summary>Reads the host's view of a remote client's input, for seats the host does not drive.</summary>

@@ -107,11 +107,11 @@ All five pellets connect at contact range for 17.5 internal damage and 6.25 base
 
 ## Following candidates
 
-### U-007 — 0.2.0已实现代码，未验证
+### U-007 — 已在0.2.x完成并实测通过
 
-Netcode for GameObjects + Unity Relay 的主机/加入已写完并通过编译，单机模式未受影响。**阻塞在绑定 Unity Cloud 项目**（`cloudProjectId` 为空）。绑定后需用两个实例实测同步、座位分配与断线。
+Relay 主机/加入、座位分配、状态与开火同步、结算画面、断线返回菜单均已由用户双实例实测。**从未测试过 4 人满员**，目前只验证到 2 人。
 
-后续未做：客户端预测（当前客户端有一个来回的输入延迟）、房间列表、准备状态、重连。
+剩余未做：客户端预测（U-030）、等待室（U-029）、房间列表、重连。
 
 ### U-014 — Low-gravity party mode
 
@@ -123,6 +123,9 @@ Create a separate moon/low-gravity ruleset.
 - U-012–U-013: shooting feedback, AI behavior, hit impact and air-combat tuning.
 - U-008: immediate-start stock match, final elimination, winner and rematch loop.
 - U-010: Pulse SMG, Scatter Blaster and Rocket Launcher fixed pickup loop.
+- 0.2.5: 随机武器掉落（取代固定点）、CC0 武器与城市素材、黄昏天际线、狙击枪取代火箭并削弱、开局手枪。
+- 0.2.3: 联机体验修复（断线检测误踢、客户端生命/比赛状态/拾取/护盾同步）、空房间、房主专属设置、房间码复制。
+- 0.2.0: Netcode for GameObjects + Relay 主机/加入。
 - 0.1.11: 受击硬直修复击退被移动控制抵消的长期缺陷、移除角色发光边框及其死代码。
 - 0.1.10: PrototypeJelly 材质资产（修复0.1.9运行时透明切换静默失败）、透明度回归断言、边框颜色修正。
 - 0.1.9: 果冻半透明材质与弹簧颤动、Bloom降至阈值1.15/强度0.5、死亡与重击的果冻碎裂爆开、命中飞溅用被击者颜色。

@@ -59,10 +59,14 @@ namespace ChaosArena
         /// <summary>
         /// Slow, precise and violent. The round travels almost instantly and the launch is the point: this is
         /// the weapon that makes knockback unmistakable, at the cost of a long cooldown and heavy self-recoil.
+        ///
+        /// Toned down after playtest. Damage was the real problem rather than the launch itself: internal
+        /// damage drives the knockback multiplier up to 3.5x, so 16 per shot ramped a target into one-hit
+        /// launch range almost immediately. Damage and shot count come down while the hit stays heavy.
         /// </summary>
         public static PrototypeWeaponProfile Sniper => new(
-            PrototypeWeaponId.Sniper, "SNIPER", 1.15f, 46f, 16f, new Vector3(7.6f, 2.4f, 0f),
-            1.35f, 0.5f, new Color(1f, 0.86f, 0.16f), 4, projectileScale: 1.1f);
+            PrototypeWeaponId.Sniper, "SNIPER", 1.5f, 46f, 10f, new Vector3(6.4f, 2.2f, 0f),
+            1.25f, 0.5f, new Color(1f, 0.86f, 0.16f), 3, projectileScale: 1.1f);
 
         public static PrototypeWeaponProfile Get(PrototypeWeaponId id) => id switch
         {

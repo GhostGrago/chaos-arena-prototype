@@ -35,21 +35,12 @@ namespace ChaosArena
                 hasBuilt = true;
             }
 
-            // The weapon always leads the facing direction, mirroring with the fighter.
+            // Turn the mount to face the aim direction. Mirroring with a negative scale left imported meshes
+            // pointing the wrong way and inverts their normals; a real rotation flips both cleanly.
             mount.localPosition = new Vector3(motor.Facing * 0.5f, -0.06f, -0.32f);
-            mount.localScale = new Vector3(motor.Facing, 1f, 1f);
+            mount.localScale = Vector3.one;
+            mount.localRotation = Quaternion.Euler(0f, motor.Facing >= 0 ? 0f : 180f, 0f);
         }
-
-        // Kenney Blaster Kit (CC0). Meshes only: the pack's own colours are replaced with this project's
-        // palette so imported weapons sit inside the neon look instead of introducing a second art language.
-        private static readonly System.Collections.Generic.Dictionary<PrototypeWeaponId, (string Model, float Scale)> Models =
-            new()
-            {
-                { PrototypeWeaponId.Carbine, ("Weapons/blaster-d", 1.05f) },
-                { PrototypeWeaponId.PulseSmg, ("Weapons/blaster-b", 1.7f) },
-                { PrototypeWeaponId.ScatterBlaster, ("Weapons/blaster-a", 1.1f) },
-                { PrototypeWeaponId.Sniper, ("Weapons/blaster-e", 0.9f) }
-            };
 
         private void Rebuild(PrototypeWeaponId weapon)
         {
@@ -61,7 +52,7 @@ namespace ChaosArena
 
             // Falls back to the primitive build if the model is missing, so a failed import never leaves
             // a fighter empty handed.
-            if (TryBuildModel(weapon, casing, accent)) return;
+            if (TryBuildModel(weapon)) return;
 
             switch (weapon)
             {
@@ -99,37 +90,11 @@ namespace ChaosArena
             }
         }
 
-        private bool TryBuildModel(PrototypeWeaponId weapon, Color casing, Color accent)
+        private bool TryBuildModel(PrototypeWeaponId weapon)
         {
-            if (!Models.TryGetValue(weapon, out (string Model, float Scale) entry)) return false;
-
-            GameObject source = Resources.Load<GameObject>(entry.Model);
-            if (source == null) return false;
-
-            GameObject instance = Instantiate(source, mount, false);
-            instance.name = "Weapon Model";
-            instance.transform.localPosition = new Vector3(0.1f, -0.02f, 0f);
-            // Pack models point down +Z; the fighter fires along +X.
-            instance.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
-            instance.transform.localScale = Vector3.one * entry.Scale;
-
-            // Recolour into the project palette: the brightest original part becomes the accent so each
-            // weapon still carries its own signal colour, everything else reads as dark casing.
-            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
-            foreach (Renderer part in renderers)
-            {
-                foreach (Collider partCollider in part.GetComponents<Collider>())
-                {
-                    partCollider.enabled = false;
-                    Destroy(partCollider);
-                }
-
-                Color original = part.sharedMaterial != null ? part.sharedMaterial.color : Color.grey;
-                float luminance = original.r * 0.299f + original.g * 0.587f + original.b * 0.114f;
-                if (luminance > 0.55f) PrototypeMaterials.AssignNeon(part, accent, 1.4f);
-                else PrototypeMaterials.AssignSurface(part, casing, 0.65f, 0.5f);
-            }
-
+            GameObject model = WeaponModels.TryCreate(weapon, mount, WeaponModels.GetHeldScale(weapon));
+            if (model == null) return false;
+            model.transform.localPosition = new Vector3(0.1f, -0.02f, 0f);
             return true;
         }
 
