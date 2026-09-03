@@ -4,6 +4,7 @@ Updated: 2026-09-01
 
 ## P0 — Current
 
+- BLOCKED: link game-client to a Unity Cloud project and enable Relay, then verify host/join with two instances.
 - Prototype 0.1.11 passed hands-on verification and is published as a public Release for external playtesting.
 - Collect external feedback on impact feel, camera comfort, preferred bot count and any readability problems.
 - Re-test balance from scratch: the new arena invalidates the 0.1.4/0.1.5 weapon and ring-out conclusions.
@@ -21,6 +22,7 @@ Updated: 2026-09-01
 
 - Generated and validated the Claude handoff entry file and full engineering report for Prototype 0.1.4.
 - Prototype 0.1.4: final-stock match ending, winner/rematch loop, arena-anchored local-player soft-follow camera, and three fixed limited-ammo weapon pickups.
+- Prototype 0.2.0: Netcode for GameObjects over Relay, host/join menu, host-authoritative replication.
 - Prototype 0.1.11: knockback hitstun fix, fighter edge frame removed.
 - Prototype 0.1.10: transparent jelly material asset, transparency assertion, edge frame colour fix.
 - Prototype 0.1.9: jelly surfaces, spring jiggle, reduced bloom, jelly bursts on hits and elimination.

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using Unity.Netcode;
 
 namespace ChaosArena
 {
@@ -50,6 +51,13 @@ namespace ChaosArena
         private float matchDuration;
         private int botCount = 1;
         private bool paused;
+        private bool inMenu = true;
+        private string joinCodeEntry = string.Empty;
+
+        private static NetworkSession Session => NetworkSession.Instance;
+        private bool Networked => Session != null && Session.Mode != SessionMode.Offline;
+        /// <summary>Only the host (or an offline game) decides outcomes; clients just display what they receive.</summary>
+        private bool HasAuthority => Session == null || Session.Mode != SessionMode.Client;
         private BotDifficulty difficulty = BotDifficulty.Easy;
 
         // Playtest builds restart on their own so a session never parks on a result screen waiting for input.
@@ -87,6 +95,9 @@ namespace ChaosArena
 
             SetupCamera(player.transform);
             StartMatch();
+
+            // Normal sessions wait at the menu so the player can choose solo or online first.
+            inMenu = !Application.isBatchMode;
 
             if (Application.isBatchMode && System.Environment.GetCommandLineArgs().Contains("-chaosSmokeTest"))
             {
@@ -301,14 +312,25 @@ namespace ChaosArena
                 return;
             }
 
+            if (inMenu) return;
+
             if (Input.GetKeyDown(KeyCode.Escape)) SetPaused(!paused);
             if (paused) return;
+
+            if (!HasAuthority)
+            {
+                ApplyNetworkState();
+                return;
+            }
 
             if (!matchEnded)
             {
                 CheckRingOuts();
+                DriveNetworkedSeats();
                 RetargetBots();
             }
+
+            if (Networked && NetMatch.Instance != null) NetMatch.Instance.HostBroadcast(roster);
 
             if (matchEnded && autoRematchAt > 0f && Time.time >= autoRematchAt) StartMatch();
 
@@ -328,6 +350,48 @@ namespace ChaosArena
             Time.timeScale = value ? 0f : 1f;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
+        }
+
+        /// <summary>Feeds each remote player's input into the fighter they own. Host only.</summary>
+        private void DriveNetworkedSeats()
+        {
+            NetMatch net = NetMatch.Instance;
+            if (!Networked || net == null || !net.IsSpawned) return;
+
+            for (int seat = 1; seat < roster.Count && seat < net.HumanSeats; seat++)
+            {
+                NetInput input = net.ConsumeInput(seat, out bool jump, out bool drop);
+                FighterMotor motor = roster[seat].GetComponent<FighterMotor>();
+                if (motor != null) motor.SetCommands(input.Horizontal, jump, drop, input.Fire, input.Horizontal);
+            }
+        }
+
+        /// <summary>
+        /// Clients are pure presentation: physics runs on the host, so incoming transforms are applied
+        /// directly and the local rigidbodies are kept out of the way.
+        /// </summary>
+        private void ApplyNetworkState()
+        {
+            NetMatch net = NetMatch.Instance;
+            if (net == null || !net.HasNetworkState) return;
+
+            for (int i = 0; i < allFighters.Count && i < NetMatch.MaxFighters; i++)
+            {
+                Fighter fighter = allFighters[i];
+                NetFighterState state = net.GetState(i);
+
+                if (fighter.gameObject.activeSelf != state.Active) fighter.gameObject.SetActive(state.Active);
+                if (!state.Active) continue;
+
+                Rigidbody body = fighter.GetComponent<Rigidbody>();
+                if (body != null && !body.isKinematic) body.isKinematic = true;
+
+                // Smoothed toward the authoritative position; snap when the gap is large, such as a respawn.
+                float gap = (fighter.transform.position - state.Position).sqrMagnitude;
+                fighter.transform.position = gap > 9f
+                    ? state.Position
+                    : Vector3.Lerp(fighter.transform.position, state.Position, 1f - Mathf.Exp(-18f * Time.deltaTime));
+            }
         }
 
         private void CheckRingOuts()
@@ -444,14 +508,19 @@ namespace ChaosArena
 
         private void SetCombatActive(bool active)
         {
-            foreach (Fighter fighter in roster)
+            bool authority = HasAuthority;
+            for (int seat = 0; seat < roster.Count; seat++)
             {
+                Fighter fighter = roster[seat];
                 FighterMotor motor = fighter.GetComponent<FighterMotor>();
                 HumanController human = fighter.GetComponent<HumanController>();
                 BotController brain = fighter.GetComponent<BotController>();
-                if (motor != null) motor.enabled = active;
+
+                // A seat taken by a remote player is driven by their input, never by a local brain.
+                bool seatIsRemoteHuman = Networked && NetMatch.Instance != null && seat > 0 && seat < NetMatch.Instance.HumanSeats;
+                if (motor != null) motor.enabled = active && authority;
                 if (human != null) human.enabled = active;
-                if (brain != null) brain.enabled = active;
+                if (brain != null) brain.enabled = active && authority && !seatIsRemoteHuman;
                 Rigidbody body = fighter.GetComponent<Rigidbody>();
                 if (!active && body != null)
                 {
@@ -577,7 +646,13 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.11 — KNOCKBACK FIX", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.2.0 — ONLINE HOST & JOIN", titleStyle);
+
+            if (inMenu)
+            {
+                DrawMainMenu();
+                return;
+            }
 
             DrawFighterPanel(player, 24f, 52f);
             for (int i = 1; i < roster.Count; i++)
@@ -638,10 +713,74 @@ namespace ChaosArena
             GUI.color = previous;
         }
 
+        /// <summary>Entry screen: play alone, host a relay room, or join one with a code.</summary>
+        private void DrawMainMenu()
+        {
+            const float width = 420f;
+            const float height = 340f;
+            float left = Screen.width * 0.5f - width * 0.5f;
+            float top = Screen.height * 0.5f - height * 0.5f;
+
+            GUI.Box(new Rect(left, top, width, height), "");
+            GUI.Label(new Rect(left, top + 16f, width, 40f), "GEOMETRY FIGHTERS", resultStyle);
+
+            bool busy = Session != null && Session.Busy;
+            GUI.enabled = !busy;
+
+            if (GUI.Button(new Rect(left + 40f, top + 74f, width - 80f, 40f), "PLAY SOLO (vs BOTS)"))
+            {
+                Session?.PlayOffline();
+                BeginPlaying();
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 122f, width - 80f, 40f), "HOST ONLINE ROOM"))
+            {
+                Session?.HostRelay();
+            }
+
+            GUI.Label(new Rect(left + 40f, top + 174f, 120f, 28f), "ROOM CODE", hudStyle);
+            joinCodeEntry = GUI.TextField(new Rect(left + 160f, top + 174f, 220f, 28f), joinCodeEntry, 8);
+
+            if (GUI.Button(new Rect(left + 40f, top + 210f, width - 80f, 40f), "JOIN ROOM"))
+            {
+                Session?.JoinRelay(joinCodeEntry);
+            }
+
+            GUI.enabled = true;
+
+            string message = busy ? (Session != null ? Session.Status : "Working...") : Session?.Status;
+            if (!string.IsNullOrEmpty(message))
+            {
+                GUI.Label(new Rect(left + 20f, top + 258f, width - 40f, 48f), message);
+            }
+
+            if (Session != null && Session.Mode == SessionMode.Host && !string.IsNullOrEmpty(Session.JoinCode))
+            {
+                GUI.Label(new Rect(left, top + 258f, width, 34f), $"ROOM CODE: {Session.JoinCode}", titleStyle);
+                if (GUI.Button(new Rect(left + 40f, top + 292f, width - 80f, 34f), "START MATCH")) BeginPlaying();
+            }
+            else if (Session != null && Session.Mode == SessionMode.Client)
+            {
+                GUI.Label(new Rect(left, top + 258f, width, 34f), "Connected. Waiting for host...", titleStyle);
+                BeginPlaying();
+            }
+            else
+            {
+                GUI.Label(new Rect(left + 20f, top + height - 30f, width - 40f, 24f),
+                    "Host shares the room code; friends type it to join.");
+            }
+        }
+
+        private void BeginPlaying()
+        {
+            inMenu = false;
+            StartMatch();
+        }
+
         private void DrawPauseMenu()
         {
             const float width = 320f;
-            const float height = 250f;
+            const float height = 300f;
             float left = Screen.width * 0.5f - width * 0.5f;
             float top = Screen.height * 0.5f - height * 0.5f;
 
@@ -656,7 +795,14 @@ namespace ChaosArena
                 StartMatch();
             }
 
-            if (GUI.Button(new Rect(left + 40f, top + 178f, width - 80f, 40f), "QUIT GAME"))
+            if (GUI.Button(new Rect(left + 40f, top + 178f, width - 80f, 40f), "LEAVE TO MENU"))
+            {
+                SetPaused(false);
+                Session?.Leave();
+                inMenu = true;
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 220f, width - 80f, 36f), "QUIT GAME"))
             {
                 Application.Quit();
             }

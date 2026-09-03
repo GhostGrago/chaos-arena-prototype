@@ -5,6 +5,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 
 namespace ChaosArena.Editor
 {
@@ -29,6 +31,7 @@ namespace ChaosArena.Editor
             ConfigureMaterials();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             new GameObject("Prototype Bootstrap").AddComponent<PrototypeBootstrap>();
+            BuildNetworking();
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
@@ -39,6 +42,29 @@ namespace ChaosArena.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"Prototype scene created at {ScenePath}");
+        }
+
+        /// <summary>
+        /// Netcode needs a NetworkManager and a spawnable NetworkObject in the scene. The arena and fighters
+        /// are assembled at runtime and so cannot be network prefabs, which is why replication is funnelled
+        /// through one scene-placed NetMatch object instead of one NetworkObject per fighter.
+        /// </summary>
+        private static void BuildNetworking()
+        {
+            GameObject managerObject = new("Network Manager");
+            NetworkManager manager = managerObject.AddComponent<NetworkManager>();
+            UnityTransport transport = managerObject.AddComponent<UnityTransport>();
+            managerObject.AddComponent<NetworkSession>();
+
+            manager.NetworkConfig ??= new NetworkConfig();
+            manager.NetworkConfig.NetworkTransport = transport;
+            manager.NetworkConfig.ConnectionApproval = false;
+            manager.NetworkConfig.EnableSceneManagement = false;
+            manager.NetworkConfig.PlayerPrefab = null;
+
+            GameObject matchObject = new("Net Match");
+            matchObject.AddComponent<NetworkObject>();
+            matchObject.AddComponent<NetMatch>();
         }
 
         [MenuItem("Tools/Chaos Arena/Build Windows Prototype")]

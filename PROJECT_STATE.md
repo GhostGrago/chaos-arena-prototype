@@ -16,7 +16,7 @@ Normal startup requires only this file and `NEXT_TASKS.md`. Historical evidence 
 
 ## Current phase
 
-Prototype 0.1.11: knockback now survives the movement controller; fighter edge frames removed.
+Prototype 0.2.0: online host/join over Unity Relay, blocked on linking a Unity Cloud project.
 
 ## Current status
 
@@ -39,6 +39,7 @@ Prototype 0.1.11: knockback now survives the movement controller; fighter edge f
 - Prototype 0.1.9 answers the plagiarism question recorded with D-019: risk lives in the silhouette, not the material, so jelly humanoids would read as Fall Guys while jelly-surfaced geometric solids do not. Fighter bodies switch to a translucent glossy surface with a spring-damper jiggle, which is what actually sells softness. Bloom threshold rises to 1.15 and intensity drops to 0.5 with every emitter roughly halved, answering the light-pollution feedback. CombatVfx.JellyBurst sprays tumbling body-coloured blobs on heavy hits, stock loss and elimination, and bullet impacts splatter in the victim's colour. Build and smoke passed; translucency rendering and burst density are unverified locally.
 - Prototype 0.1.10 fixes two 0.1.9 defects the user reported. The jelly translucency never applied: switching an opaque URP Lit material to transparent blending at runtime failed silently, which PITFALLS already warned against. Transparency now lives in a PrototypeJelly.mat asset alongside the existing Lit and Unlit resources, and a new assertion checks the body material's render queue and _SURFACE_TYPE_TRANSPARENT keyword so the failure cannot recur unnoticed. The edge frame also read as white because a 0.5 lerp toward white was multiplied by a 1.6 neon intensity; it now keeps the fighter's own colour.
 - Prototype 0.1.11 is the first build the user has hands-on verified: the ESC menu opens and quits correctly, pressing ESC during a hitstop no longer lets the game unfreeze behind the menu, weakened respawn protection gives visible feedback, and knockback now visibly moves a grounded advancing bot. It also fixes a long-standing defect where knockback appeared to do nothing. FighterMotor overwrites horizontal velocity every physics step, so ground acceleration of 35/s cancelled a 3.25 carbine impulse in about 0.09s; the effect was worst against a grounded, actively moving bot, which is exactly what the player fights. A control lock now suspends movement for 0.15-0.45s scaled by impulse, preserving momentum under light drag, with an assertion covering the mechanism. The fighter edge frame added in 0.1.8 read as a cage around the jelly body and is removed along with its now-dead builder code; platform neon edges stay because they serve ring-out readability.
+- Prototype 0.2.0 adds online host and join. Relay was chosen over direct IP because the host sits behind NAT and GAME_VISION rules out port forwarding as the default experience. Because the arena and fighters are built at runtime and cannot be network prefabs, replication runs through a single scene NetMatch object: clients push input up and the host broadcasts all four fighters' state at 25Hz. The host owns physics, AI and match rules; clients are pure presentation with kinematic bodies. A main menu now offers solo, host and join. Offline play is unchanged and all previous assertions still pass. ONLINE IS COMPLETELY UNTESTED and cannot run until cloudProjectId is set by linking a Unity Cloud project and enabling Relay.
 - The collaboration workflow is local-first and version-batched: suggestions are collected before an approved iteration, Codex and Claude share the local project state, and GitHub is compared before and after synchronization. On 2026-09-02, clean local `main`, remote `origin/main`, and peeled tag `v0.1.4` matched commit `63cbbe66ca09d864e8a86517f1506361eef1c407`.
 
 ## Established results
@@ -55,7 +56,7 @@ Prototype 0.1.11: knockback now survives the movement controller; fighter edge f
 ## Unknown
 
 - Worldbuilding/art direction is selected: abstract geometric "Geometry Fighters" (D-019). Character forms and per-mode visual language are not yet implemented.
-- Exact networking/Steam integration is not selected.
+- Networking is now Netcode for GameObjects over Unity Relay (0.2.0). Steam integration is still not selected.
 - Original project name is not selected.
 - Final health-to-knockback curve is not selected; Prototype 0.1 starts at 1.0x–3.5x.
 

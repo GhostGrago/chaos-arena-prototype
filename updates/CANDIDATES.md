@@ -99,9 +99,11 @@ All five pellets connect at contact range for 17.5 internal damage and 6.25 base
 
 ## Following candidates
 
-### U-007 — Internet duel
+### U-007 — 0.2.0已实现代码，未验证
 
-Prove a two-player Host/Join match before expanding the networking design.
+Netcode for GameObjects + Unity Relay 的主机/加入已写完并通过编译，单机模式未受影响。**阻塞在绑定 Unity Cloud 项目**（`cloudProjectId` 为空）。绑定后需用两个实例实测同步、座位分配与断线。
+
+后续未做：客户端预测（当前客户端有一个来回的输入延迟）、房间列表、准备状态、重连。
 
 ### U-014 — Low-gravity party mode
 
