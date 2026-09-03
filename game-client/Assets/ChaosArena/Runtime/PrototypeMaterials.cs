@@ -7,17 +7,14 @@ namespace ChaosArena
     {
         private const string LitResourcePath = "ChaosArenaMaterials/PrototypeLit";
         private const string UnlitResourcePath = "ChaosArenaMaterials/PrototypeUnlit";
+        private const string JellyResourcePath = "ChaosArenaMaterials/PrototypeJelly";
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int MetallicId = Shader.PropertyToID("_Metallic");
         private static readonly int SmoothnessId = Shader.PropertyToID("_Smoothness");
-        private static readonly int SurfaceId = Shader.PropertyToID("_Surface");
-        private static readonly int BlendId = Shader.PropertyToID("_Blend");
-        private static readonly int SrcBlendId = Shader.PropertyToID("_SrcBlend");
-        private static readonly int DstBlendId = Shader.PropertyToID("_DstBlend");
-        private static readonly int ZWriteId = Shader.PropertyToID("_ZWrite");
 
         private static Material litTemplate;
         private static Material unlitTemplate;
+        private static Material jellyTemplate;
 
         public static void Assign(Renderer renderer, Color color, bool unlit = false)
         {
@@ -65,13 +62,19 @@ namespace ChaosArena
         }
 
         /// <summary>
-        /// Translucent, glossy "jelly" surface for fighter bodies. The template material is opaque, so the
-        /// blend state is switched at runtime. If a URP variant ever refuses the switch the body simply stays
-        /// opaque, which still reads correctly — the neon edge frame carries the silhouette either way.
+        /// Translucent glossy body surface. The transparent blend state lives in a real material asset rather
+        /// than being switched at runtime: flipping an opaque URP material to transparent in code silently
+        /// failed in 0.1.9, and PITFALLS already warns against guessing URP material state in code.
         /// </summary>
-        public static void AssignJelly(Renderer renderer, Color color, float alpha = 0.78f)
+        public static void AssignJelly(Renderer renderer, Color color, float alpha = 0.72f)
         {
-            Material instance = new(GetTemplate(false))
+            jellyTemplate ??= Resources.Load<Material>(JellyResourcePath);
+            if (jellyTemplate == null)
+            {
+                throw new InvalidOperationException($"Missing URP material resource: {JellyResourcePath}");
+            }
+
+            Material instance = new(jellyTemplate)
             {
                 name = "Prototype Jelly (Runtime)",
                 enableInstancing = true
@@ -80,18 +83,6 @@ namespace ChaosArena
             Color body = color;
             body.a = alpha;
             SetMaterialColor(instance, body);
-            if (instance.HasProperty(MetallicId)) instance.SetFloat(MetallicId, 0f);
-            if (instance.HasProperty(SmoothnessId)) instance.SetFloat(SmoothnessId, 0.92f);
-
-            instance.SetFloat(SurfaceId, 1f);
-            instance.SetFloat(BlendId, 0f);
-            instance.SetInt(SrcBlendId, (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            instance.SetInt(DstBlendId, (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            instance.SetInt(ZWriteId, 0);
-            instance.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            instance.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            instance.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-
             renderer.sharedMaterial = instance;
         }
 

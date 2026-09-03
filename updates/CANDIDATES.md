@@ -113,6 +113,7 @@ Create a separate moon/low-gravity ruleset.
 - U-012–U-013: shooting feedback, AI behavior, hit impact and air-combat tuning.
 - U-008: immediate-start stock match, final elimination, winner and rematch loop.
 - U-010: Pulse SMG, Scatter Blaster and Rocket Launcher fixed pickup loop.
+- 0.1.10: PrototypeJelly 材质资产（修复0.1.9运行时透明切换静默失败）、透明度回归断言、边框颜色修正。
 - 0.1.9: 果冻半透明材质与弹簧颤动、Bloom降至阈值1.15/强度0.5、死亡与重击的果冻碎裂爆开、命中飞溅用被击者颜色。
 - 0.1.8: Bloom后处理与霓虹材质、按形态发光边框、竞技场霓虹化、按武器区分的手持造型、asmdef URP引用修复。
 - 0.1.7: 几何战士形态(U-023)、抓边回场(U-009)、屏外指示(U-011)、出界边界与火箭穿台(U-017)。

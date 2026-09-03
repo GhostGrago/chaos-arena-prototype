@@ -116,7 +116,7 @@ namespace ChaosArena
             AssertGeometricBodies();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_019_ASSERTIONS_PASS: jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_0110_ASSERTIONS_PASS: translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -146,6 +146,16 @@ namespace ChaosArena
                 if (fighter.transform.Find("Visual Root/Weapon Mount") == null)
                 {
                     throw new System.InvalidOperationException("Fighter is missing its weapon mount.");
+                }
+
+                // 0.1.9 shipped opaque bodies because a runtime opaque->transparent switch silently failed.
+                // Assert the jelly surface really is transparent so that cannot regress unnoticed again.
+                Material bodyMaterial = bodyTransform.GetComponent<Renderer>().sharedMaterial;
+                if (bodyMaterial.renderQueue < (int)UnityEngine.Rendering.RenderQueue.Transparent ||
+                    !bodyMaterial.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"))
+                {
+                    throw new System.InvalidOperationException(
+                        "Fighter body is not translucent; the jelly material asset did not apply.");
                 }
             }
 
@@ -463,7 +473,7 @@ namespace ChaosArena
             GameObject frameObject = new("Edge Frame");
             frameObject.transform.SetParent(root, false);
             frameObject.transform.localScale = bodyObject.transform.localScale * 1.03f;
-            ProceduralShapes.CreateEdgeFrame(shape, frameObject.transform, Color.Lerp(tint, Color.white, 0.5f));
+            ProceduralShapes.CreateEdgeFrame(shape, frameObject.transform, Color.Lerp(tint, Color.white, 0.12f));
 
             GameObject eyeObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             eyeObject.name = "Eye";
@@ -524,7 +534,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.9 — JELLY GEOMETRY & BURSTS", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.10 — TRANSLUCENT JELLY", titleStyle);
 
             DrawFighterPanel(player, 24f, 52f);
             for (int i = 1; i < roster.Count; i++)

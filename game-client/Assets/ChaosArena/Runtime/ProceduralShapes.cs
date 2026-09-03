@@ -173,7 +173,7 @@ namespace ChaosArena
                 : Quaternion.identity;
             bar.transform.localScale = new Vector3(thickness, thickness, direction.magnitude);
 
-            PrototypeMaterials.AssignNeon(bar.GetComponent<Renderer>(), color, 1.6f);
+            PrototypeMaterials.AssignNeon(bar.GetComponent<Renderer>(), color, 1.15f);
             return bar;
         }
 
