@@ -1,10 +1,19 @@
 # NEXT TASKS — 原创2.5D在线平台射击游戏
 
-Updated: 2026-09-02
+Updated: 2026-09-03
 
 ## P0 — Current
 
-- Hands-on test `LOCAL 3 PLAYERS` with the currently detected Xbox Controller and DualSense Wireless Controller: simultaneous movement, South/Cross/A jump, East/Circle/B drop-through, LT/RT fire, three-target camera and all three offscreen indicators.
+- Hands-on the 2026-09-03 batch. Nothing in it has been played yet; the build and smoke test only prove it runs.
+  - Speed streak: is the 9.5 threshold right, and are the length and width readable without smearing?
+  - Bot ladder: play EASY through MASTER. MASTER is deliberately unfair; NORMAL is the old HARD plus the new accuracy systems, so the default is considerably stronger than before.
+  - Launch recovery: bots now spend the air jump to climb back onto the deck. Decide whether this makes a launch feel worthless; if so, restrict it to EXPERT and MASTER.
+  - Weapon orientation: confirm the SMG, scatter and sniper now point outward, and confirm the pistol genuinely needed no change.
+  - Charge ring: check it does not obscure the fighter or the line of fire.
+  - Four arenas: play NEON CITY, DESERT, STARSHIP and OCEAN. Check moving-platform pacing and whether any layout has a gap that plays worse than it measures.
+  - Power-ups: judge the 7s shield, the 9s shrink and the roughly one-in-three drop share.
+  - Four-player couch play has never been run with three physical gamepads.
+- Moving platforms derive position from the clock, so every peer computes the same path without replication. That reasoning has not been checked against a live two-instance online match.
 - Continue the integrated Prototype 0.3.0 check: weapon-specific physical recoil, 4K/Borderless switching, persistence after restart and high-resolution UI scale. P2 movement and A-button jump have passed.
 - Explicitly confirm B/down drop-through, simultaneous inputs, shared-camera extremes, offscreen indicators, rematch and menu return.
 - Prioritize game feel over background scope: movement, air control, knockback readability, weapon identity, drop pacing, AI pressure and online responsiveness.
@@ -30,6 +39,10 @@ Updated: 2026-09-02
 - Do not start low gravity, infection, rotating-platform, battle-royale or power-weapon modes from this list alone.
 
 ## Recently completed
+
+- Three-player physical input confirmed by the user (keyboard + Xbox + DualSense). The 0.3.0 three-seat item is closed.
+- 2026-09-03 batch inside 0.3.0: layered impact feedback and a continuous speed streak; a five-tier bot ladder with lead prediction, line-of-sight, range discipline, dodging and launch recovery; a rebuilt menu, couch lobby and lives-only HUD; four-player local seats; weapon orientation, drop size and charge ring; four themed arenas with moving platforms; shield and shrink power-ups.
+- Fixed a self-inflicted regression in the same batch where bots moved and dodged but never fired, and added a negative-tested assertion covering it.
 
 - Prototype 0.3.0 milestone in progress: local two-player, controller input, dual-trigger firing, physical shooter recoil and display settings are maintained as one integrated version rather than separate patch-version increments.
 - U-035 integrated into the same 0.3.0 milestone: local three-player menu mode, Unity Input System 1.19.0, separate Xbox/DualSense device slots, three-target camera and live two-gamepad detection; physical three-person gameplay pending.

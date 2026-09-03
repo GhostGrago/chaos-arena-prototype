@@ -57,13 +57,13 @@ namespace ChaosArena
 
         private void LateUpdate()
         {
-            if (fighter == null || !fighter.IsProtected)
+            if (fighter == null || !fighter.IsDamped)
             {
                 SetVisible(false);
                 return;
             }
 
-            float remaining = fighter.ProtectionRemaining;
+            float remaining = fighter.DampedRemaining;
             bool visible = remaining > BlinkWindow || Mathf.Repeat(remaining * BlinkRate, 1f) > 0.5f;
             SetVisible(visible);
             ring.localRotation = Quaternion.Euler(0f, 0f, Time.time * SpinDegreesPerSecond);

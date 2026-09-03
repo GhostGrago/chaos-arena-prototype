@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 namespace ChaosArena
 {
-    public enum LocalInputSlot { PlayerOne, PlayerTwo, PlayerThree }
+    public enum LocalInputSlot { PlayerOne, PlayerTwo, PlayerThree, PlayerFour }
 
     /// <summary>
     /// Reads one local input slot. Player one uses keyboard; players two and three use distinct Gamepad
@@ -33,6 +33,27 @@ namespace ChaosArena
                 : "NOT CONNECTED";
         }
 
+        /// <summary>Gamepad index of a pad asking to join the lobby this frame, or -1 for none.</summary>
+        public static int GamepadRequestingJoin()
+        {
+            for (int i = 0; i < Gamepad.all.Count; i++)
+            {
+                Gamepad pad = Gamepad.all[i];
+                if (pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame) return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>Which gamepad drives a seat. Seat 0 is the keyboard, so pads start at seat 1.</summary>
+        public static int GamepadIndexForSlot(LocalInputSlot slot) => slot switch
+        {
+            LocalInputSlot.PlayerTwo => 0,
+            LocalInputSlot.PlayerThree => 1,
+            LocalInputSlot.PlayerFour => 2,
+            _ => -1
+        };
+
         private void Awake()
         {
             motor = GetComponent<FighterMotor>();
@@ -47,8 +68,9 @@ namespace ChaosArena
 
             if (inputSlot != LocalInputSlot.PlayerOne)
             {
-                int controllerIndex = inputSlot == LocalInputSlot.PlayerTwo ? 0 : 1;
-                Gamepad gamepad = controllerIndex < Gamepad.all.Count ? Gamepad.all[controllerIndex] : null;
+                int controllerIndex = GamepadIndexForSlot(inputSlot);
+                Gamepad gamepad = controllerIndex >= 0 && controllerIndex < Gamepad.all.Count
+                    ? Gamepad.all[controllerIndex] : null;
                 float stick = gamepad != null ? gamepad.leftStick.x.ReadValue() : 0f;
                 horizontal = Mathf.Abs(stick) >= 0.18f ? stick : 0f;
                 bool keyboardFallback = inputSlot == LocalInputSlot.PlayerTwo;

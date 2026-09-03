@@ -29,23 +29,34 @@ namespace ChaosArena
         private const float MaxPullBack = 8f;
 
         private readonly Vector3 arenaFocus = new(0f, 2.25f, 0.5f);
-        private readonly Transform[] players = new Transform[3];
+        private readonly Transform[] players = new Transform[4];
         private Vector3 velocity;
 
         public bool HasSecondaryTarget => players[1] != null;
-        public int TargetCount => (players[0] != null ? 1 : 0) + (players[1] != null ? 1 : 0) +
-                                  (players[2] != null ? 1 : 0);
 
-        public void SetTarget(Transform target)
+        public int TargetCount
         {
-            SetTargets(target, null, null);
+            get
+            {
+                int count = 0;
+                foreach (Transform target in players)
+                {
+                    if (target != null) count++;
+                }
+
+                return count;
+            }
         }
 
-        public void SetTargets(Transform primary, Transform secondary, Transform tertiary = null)
+        public void SetTarget(Transform target) => SetTargets(target);
+
+        /// <summary>Frames every local player at once; anything beyond the supported seats is cleared.</summary>
+        public void SetTargets(params Transform[] targets)
         {
-            players[0] = primary;
-            players[1] = secondary;
-            players[2] = tertiary;
+            for (int i = 0; i < players.Length; i++)
+            {
+                players[i] = targets != null && i < targets.Length ? targets[i] : null;
+            }
         }
 
         private void LateUpdate()

@@ -32,12 +32,18 @@ namespace ChaosArena
 
         // Silhouettes form a deliberate length ladder so weapons are told apart at a glance:
         // pistol 0.42 -> SMG 0.62 -> scatter 0.80 -> sniper 1.39 model units.
+        //
+        // These signs are set from what is actually on screen, not derived. Measuring the source meshes is
+        // not sufficient on its own: the OBJ import applies its own handedness conversion, so a barrel that
+        // sits at -Z in the file does not reliably arrive at -Z in Unity, and two models with the same
+        // measured geometry rendered in opposite directions. The pistol was confirmed correct by playtest;
+        // the other three were reported barrel-inward and are flipped here.
         private static readonly Dictionary<PrototypeWeaponId, WeaponModel> Catalogue = new()
         {
             { PrototypeWeaponId.Carbine, new WeaponModel("Weapons/blaster-b", 2.4f, -1) },
-            { PrototypeWeaponId.PulseSmg, new WeaponModel("Weapons/blaster-m", 1.8f, 1) },
-            { PrototypeWeaponId.ScatterBlaster, new WeaponModel("Weapons/blaster-a", 1.6f, -1) },
-            { PrototypeWeaponId.Sniper, new WeaponModel("Weapons/blaster-e", 1.35f, -1) }
+            { PrototypeWeaponId.PulseSmg, new WeaponModel("Weapons/blaster-m", 1.8f, -1) },
+            { PrototypeWeaponId.ScatterBlaster, new WeaponModel("Weapons/blaster-a", 1.6f, 1) },
+            { PrototypeWeaponId.Sniper, new WeaponModel("Weapons/blaster-e", 1.35f, 1) }
         };
 
         private static Texture2D colormap;

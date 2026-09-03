@@ -26,6 +26,9 @@ namespace ChaosArena
         private PrototypeWeaponProfile weapon = PrototypeWeaponProfile.Carbine;
         private int ammo = -1;
 
+        /// <summary>Velocity of whatever the fighter is standing on, so moving platforms carry their riders.</summary>
+        private Vector3 groundVelocity;
+
         /// <summary>Roster slot this fighter occupies; used to attribute networked shots.</summary>
         public int SeatIndex { get; set; }
 
@@ -81,6 +84,16 @@ namespace ChaosArena
         public PrototypeWeaponId WeaponId => weapon.Id;
         public string WeaponName => weapon.Name;
         public int Ammo => ammo;
+
+        // Charge indicator. Only slow weapons get one: on the SMG the cooldown is shorter than the eye can
+        // follow, so a ring there would strobe and read as visual noise rather than as information.
+        private const float ChargeRingMinCooldown = 0.3f;
+        public bool ShowsChargeRing => weapon.FireCooldown >= ChargeRingMinCooldown;
+
+        /// <summary>0 right after a shot, 1 when the weapon can fire again.</summary>
+        public float ChargeProgress01 => weapon.FireCooldown <= 0f
+            ? 1f
+            : Mathf.Clamp01(1f - (nextFireTime - Time.time) / weapon.FireCooldown);
 
         private void Awake()
         {
@@ -143,10 +156,20 @@ namespace ChaosArena
             }
             else
             {
-                float targetVelocity = moveInput * moveSpeed;
+                // The platform's own motion is added to the target rather than left to friction: this motor
+                // overwrites horizontal velocity every step, so a fighter standing on a sliding platform
+                // would otherwise be scraped off the back of it immediately.
+                float targetVelocity = moveInput * moveSpeed + groundVelocity.x;
                 float acceleration = IsGrounded ? groundAcceleration : airAcceleration;
                 float newX = Mathf.MoveTowards(body.linearVelocity.x, targetVelocity, acceleration * Time.fixedDeltaTime);
                 body.linearVelocity = new Vector3(newX, body.linearVelocity.y, 0f);
+            }
+
+            // A rising platform has to push the fighter up with it; without this the platform passes through
+            // and the fighter is left standing in the air until it falls.
+            if (IsGrounded && groundVelocity.y > 0.01f && body.linearVelocity.y < groundVelocity.y)
+            {
+                body.linearVelocity = new Vector3(body.linearVelocity.x, groundVelocity.y, 0f);
             }
 
             ApplyAirGravityTuning();
@@ -224,6 +247,7 @@ namespace ChaosArena
         private bool CheckGrounded()
         {
             currentSupport = null;
+            groundVelocity = Vector3.zero;
             Vector3 origin = ownCollider.bounds.center;
             float distance = ownCollider.bounds.extents.y + 0.16f;
             RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, distance, ~0, QueryTriggerInteraction.Ignore);
@@ -232,6 +256,7 @@ namespace ChaosArena
                 if (hit.collider != ownCollider && !hit.collider.isTrigger && !Physics.GetIgnoreCollision(ownCollider, hit.collider))
                 {
                     currentSupport = hit.collider.GetComponent<OneWayPlatform>();
+                    groundVelocity = MovingPlatform.VelocityUnder(hit.collider);
                     return true;
                 }
             }

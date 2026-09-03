@@ -33,6 +33,22 @@ namespace ChaosArena
         private float jiggleVelocity;
         private Vector3 previousVelocity;
 
+        // Speed streak. Only starts above normal running speed (the motor tops out at 7) so ordinary movement
+        // stays clean and a streak always means "this fighter is moving unusually fast" — launched, dodging,
+        // or falling hard. Below the floor the trail stops emitting and the tail fades out on its own.
+        //
+        // Built as one continuous ribbon rather than a row of separate afterimages: discrete ghosts read as a
+        // dotted line at arena distance, while an unbroken streak both looks like motion glare and gives a
+        // single clean line to follow when several fighters are launched at once.
+        private const float TrailSpeedFloor = 9.5f;
+        private const float TrailSpeedCeiling = 24f;
+        private TrailRenderer streak;
+        private float trailBoostUntil;
+        private float sizeScale = 1f;
+
+        /// <summary>Whether this fighter can actually leave a speed streak, i.e. the trail is built.</summary>
+        public bool CanTrail => streak != null && streak.sharedMaterial != null;
+
         public void Bind(Transform root, Transform bodyTransform, Transform eyeTransform, Renderer tintRenderer)
         {
             visualRoot = root;
@@ -40,6 +56,40 @@ namespace ChaosArena
             eye = eyeTransform;
             bodyRenderer = tintRenderer;
             if (bodyRenderer != null) baseTint = bodyRenderer.sharedMaterial.color;
+
+            BuildStreak();
+        }
+
+        /// <summary>
+        /// One ribbon that follows the fighter itself, not the squashing visual root, so the streak traces the
+        /// actual flight path instead of wobbling with the jelly animation. Same construction the projectile
+        /// tracer already uses: unlit and driven bright so the bloom pass turns it into a glare.
+        /// </summary>
+        private void BuildStreak()
+        {
+            GameObject streakObject = new("Speed Streak");
+            streakObject.transform.SetParent(transform, false);
+
+            streak = streakObject.AddComponent<TrailRenderer>();
+            streak.time = 0.3f;
+            streak.minVertexDistance = 0.05f;
+            streak.startWidth = 0.9f;
+            streak.endWidth = 0f;
+            streak.numCapVertices = 4;
+            streak.autodestruct = false;
+            streak.emitting = false;
+            streak.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            streak.receiveShadows = false;
+            streak.sharedMaterial = PrototypeMaterials.CreateMaterial(baseTint * 2.6f, true);
+        }
+
+        /// <summary>
+        /// Forces the trail on briefly regardless of speed. A launch is most readable in the first moments
+        /// after contact, before the fighter has built up enough speed to cross the normal threshold.
+        /// </summary>
+        public void BoostTrail(float seconds)
+        {
+            trailBoostUntil = Mathf.Max(trailBoostUntil, Time.time + seconds);
         }
 
         public void OnFire(float amount)
@@ -83,13 +133,24 @@ namespace ChaosArena
 
             UpdateJiggle(velocity);
 
+            // The shrink power-up scales the whole visual root, so the body a player sees matches the hit
+            // volume the collider actually presents. Eased rather than snapped so the change reads as an
+            // effect rather than as a rendering glitch.
+            Fighter fighter = GetComponent<Fighter>();
+            float targetSize = fighter != null ? fighter.SizeScale : 1f;
+            sizeScale = Mathf.MoveTowards(sizeScale, targetSize, Time.deltaTime * 2.4f);
+
             float squash = hitPulse * 0.24f + bounce * 0.1f + jiggle;
             visualRoot.localPosition = new Vector3(-recoil, 0f, 0f);
-            visualRoot.localScale = new Vector3(1f + squash, 1f - squash * 0.72f, 1f + squash * 0.45f);
+            visualRoot.localScale = new Vector3(1f + squash, 1f - squash * 0.72f, 1f + squash * 0.45f) * sizeScale;
             visualRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Clamp(-velocity.x * 1.1f + dangerWobble, -16f, 16f));
 
             body.localRotation = Quaternion.Euler(0f, 0f, tumble);
             body.localScale = Vector3.one * (1f + speed01 * 0.03f);
+
+            // Spawned after the pose is final so the ghost is an exact copy of what is on screen this frame,
+            // squash and tumble included, rather than a frame behind.
+            UpdateSpeedTrail(velocity);
 
             // The eye is the only facing cue an abstract solid has, so it always leads the direction of fire.
             if (eye != null)
@@ -106,6 +167,33 @@ namespace ChaosArena
                 flash.a = baseTint.a;
                 PrototypeMaterials.SetColor(bodyRenderer, flash);
             }
+        }
+
+        /// <summary>
+        /// Drives the streak behind a fast-moving fighter. Length and width both scale with speed, so a light
+        /// hop draws a short thin line while a sniper launch draws a long bright one — the speed itself is
+        /// what the player reads, with no extra HUD.
+        /// </summary>
+        private void UpdateSpeedTrail(Vector3 velocity)
+        {
+            if (!CanTrail) return;
+
+            // A hit is worth showing before the fighter has picked up speed, so the boost lowers the bar
+            // rather than bypassing the system.
+            bool boosted = Time.time < trailBoostUntil;
+            float floor = boosted ? TrailSpeedFloor * 0.5f : TrailSpeedFloor;
+            float speed = velocity.magnitude;
+
+            // Turning emission off rather than clearing lets the existing tail fade out behind the fighter,
+            // which is what makes the streak taper away instead of vanishing all at once.
+            streak.emitting = speed >= floor;
+            if (!streak.emitting) return;
+
+            float intensity = Mathf.Clamp01((speed - floor) / Mathf.Max(1f, TrailSpeedCeiling - floor));
+            if (boosted) intensity = Mathf.Max(intensity, 0.65f);
+
+            streak.time = Mathf.Lerp(0.18f, 0.42f, intensity);
+            streak.widthMultiplier = Mathf.Lerp(0.55f, 1.2f, intensity);
         }
 
         /// <summary>Spring-damper on the body scale, kicked by any sudden change in velocity.</summary>

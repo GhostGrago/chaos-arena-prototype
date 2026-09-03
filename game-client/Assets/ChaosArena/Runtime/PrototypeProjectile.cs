@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ChaosArena
@@ -9,6 +10,19 @@ namespace ChaosArena
         private float expiresAt;
         private PrototypeWeaponProfile weapon;
         private bool cosmetic;
+
+        // Rounds currently in flight, so bots can see what is coming at them and dodge it. Membership is
+        // driven by enable/disable rather than by the spawner, so a destroyed round always leaves the list.
+        private static readonly List<PrototypeProjectile> InFlight = new();
+        public static IReadOnlyList<PrototypeProjectile> Active => InFlight;
+
+        public Fighter Owner => owner;
+        public Vector3 Direction => direction;
+        public float Speed => weapon.ProjectileSpeed;
+        public bool IsCosmetic => cosmetic;
+
+        private void OnEnable() => InFlight.Add(this);
+        private void OnDisable() => InFlight.Remove(this);
 
         /// <summary>
         /// Cosmetic rounds exist only so clients can see the host's shots. They travel and spark but never

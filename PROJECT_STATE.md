@@ -1,6 +1,6 @@
 # PROJECT STATE — 原创2.5D在线平台射击游戏
 
-Updated: 2026-09-02
+Updated: 2026-09-03
 Project root: `C:\Users\17141\OneDrive\Document\ChatGPT\Game`  
 Workflow: `BUILD / STANDARD`
 
@@ -16,7 +16,7 @@ Normal startup requires only this file and `NEXT_TASKS.md`. Historical evidence 
 
 ## Current phase
 
-Prototype 0.3.0: local two-player milestone, including controller refinement, physical shooter recoil and display settings; final hands-on pending.
+Prototype 0.3.0: local multiplayer milestone. Three-player physical input is hands-on confirmed. The milestone now also carries the 2026-09-03 batch: layered impact feedback, a five-tier bot ladder, a rebuilt menu and HUD, four themed arenas with moving platforms, and shield/shrink power-ups. Hands-on confirmation of that batch is pending.
 
 ## Current status
 
@@ -47,6 +47,10 @@ Prototype 0.3.0: local two-player milestone, including controller refinement, ph
 - Prototype 0.3.0 adds a `LOCAL 2 PLAYERS` offline mode with exactly two human seats and no AI. P1 uses keyboard; P2 uses the first controller with an alternate keyboard layout. A shared arena-anchored camera frames both players and each receives a coloured offscreen indicator. Online seat behavior remains separate. Windows build and `-chaosSmokeTest` passed; physical-controller behavior and two-player camera feel remain hands-on unknowns.
 - The same Prototype 0.3.0 milestone incorporates its first controller-playtest refinements rather than advancing a patch version: P2 movement and A-button jumping are hands-on confirmed; LT/RT now fire while X/RB and keyboard fallbacks remain. Shooter recoil adds deterministic backward rigidbody velocity with a short momentum-preservation window. Display settings add 720p/900p/1080p/1440p/4K plus native resolution, Windowed/Borderless modes, persisted preferences and high-resolution UI scaling. The integrated Windows build and smoke pass; LT/RT, recoil feel and display switching remain hands-on pending.
 - U-035 is integrated into the same 0.3.0 local-multiplayer milestone. `LOCAL 3 PLAYERS` assigns P1 to keyboard, P2 to Input System gamepad 0 and P3 to gamepad 1, with no AI, a three-target camera, three offscreen indicators and a missing-device warning. Input System 1.19.0 is installed with old/new input enabled together. Windows build and smoke passed three-seat/input/camera assertions. An ordinary live run detected `Xbox Controller` and `DualSense Wireless Controller` simultaneously; physical button presses and three-person feel remain hands-on pending.
+- Three-player physical input is hands-on confirmed by the user on 2026-09-03: keyboard, Xbox Controller and DualSense playing simultaneously. This closes the 0.3.0 three-seat verification item. `AssertLocalMultiplayerContract` only ever verified seat wiring and never that a key press reached a fighter, so this confirmation was not replaceable by automation.
+- The 2026-09-03 batch stays inside the 0.3.0 milestone and covers five areas. Impact: a continuous TrailRenderer speed streak replaces the earlier row of discrete afterimages, alongside a shockwave ring and an impulse-aligned spark spray. AI: five difficulty tiers in `BotProfile.cs` with the whole curve moved up one step, where added skill is lead prediction, line-of-sight refusal, weapon-range discipline, projectile dodging and launch recovery rather than stat cheating. UI: the permanent on-arena help text moves into a menu screen, the HUD becomes a lives-only scoreboard with humans left and bots right, the entry screen reduces to SINGLE PLAYER / MULTIPLAYER, and a couch lobby lets gamepads claim seats up to four local players. Weapons: SMG/scatter/sniper model orientation corrected, ground drops enlarged, and a charge ring added to weapons whose cooldown is long enough to read. Content: four themed arenas with moving platforms, plus shield and shrink power-ups.
+- Weapon muzzle direction is now recorded from what renders, not derived from the mesh. Measuring the OBJ files was not sufficient on its own: the importer applies its own handedness conversion, and two models with the same measured barrel axis rendered in opposite directions.
+- The 2026-09-03 batch also fixed a regression it introduced itself. `RetargetBots()` reassigns the nearest rival every frame, and the new `SetTarget` cleared aim state unconditionally, so the reaction timer never accumulated: bots moved and dodged flawlessly but never fired a shot. `AssertBotsCanActuallyShoot` now covers it and was negative-tested — reverting the fix makes the assertion fail with its own message and suppresses the pass marker.
 - The collaboration workflow is local-first and version-batched. On 2026-09-02, local `main`, public `origin/main`, and peeled tag `v0.2.5` matched commit `ae0778f785414dea498c44426b3236a5ea0b3430` before the reproducibility build.
 
 ## Established results

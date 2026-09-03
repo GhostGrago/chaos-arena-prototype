@@ -19,6 +19,9 @@ namespace ChaosArena
         private const float MaxInterval = 9.5f;
         private const float DropHeight = 0.75f;
 
+        /// <summary>Share of drops that are power-ups. A minority, so weapons stay the main contested prize.</summary>
+        private const float PowerUpShare = 0.34f;
+
         private static readonly PrototypeWeaponId[] DroppableWeapons =
         {
             PrototypeWeaponId.PulseSmg,
@@ -66,10 +69,24 @@ namespace ChaosArena
                 return;
             }
 
-            PrototypeWeaponId weapon = DroppableWeapons[Random.Range(0, DroppableWeapons.Length)];
-            free.Configure(PrototypeWeaponProfile.Get(weapon), PickDropPoint());
+            Vector3 point = PickDropPoint();
+            Color flash;
+
+            if (Random.value < PowerUpShare)
+            {
+                PowerUpKind kind = PowerUp.All[Random.Range(0, PowerUp.All.Length)];
+                free.ConfigurePowerUp(kind, point);
+                flash = PowerUp.Tint(kind);
+            }
+            else
+            {
+                PrototypeWeaponId weapon = DroppableWeapons[Random.Range(0, DroppableWeapons.Length)];
+                free.Configure(PrototypeWeaponProfile.Get(weapon), point);
+                flash = PrototypeWeaponProfile.Get(weapon).ProjectileColor;
+            }
+
             free.SetAvailableState(true);
-            CombatVfx.Impact(free.Position, 1, PrototypeWeaponProfile.Get(weapon).ProjectileColor, true);
+            CombatVfx.Impact(free.Position, 1, flash, true);
 
             nextDropTime = Time.time + Random.Range(MinInterval, MaxInterval);
         }
