@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ChaosArena
 {
-    public enum PrototypeWeaponId { Carbine, PulseSmg, ScatterBlaster, RocketLauncher }
+    public enum PrototypeWeaponId { Carbine, PulseSmg, ScatterBlaster, Sniper }
 
     public readonly struct PrototypeWeaponProfile
     {
@@ -56,16 +56,19 @@ namespace ChaosArena
             PrototypeWeaponId.ScatterBlaster, "SCATTER", 0.72f, 15f, 3.5f, new Vector3(1.25f, 0.5f, 0f),
             0.48f, 0.28f, new Color(1f, 0.2f, 0.68f), 8, 5, 16f, projectileScale: 0.68f);
 
-        public static PrototypeWeaponProfile RocketLauncher => new(
-            PrototypeWeaponId.RocketLauncher, "ROCKET", 1.05f, 10f, 13f, new Vector3(4.4f, 2.1f, 0f),
-            0.62f, 0.34f, new Color(1f, 0.86f, 0.16f), 5, explosionRadius: 2.7f,
-            projectileScale: 1.45f);
+        /// <summary>
+        /// Slow, precise and violent. The round travels almost instantly and the launch is the point: this is
+        /// the weapon that makes knockback unmistakable, at the cost of a long cooldown and heavy self-recoil.
+        /// </summary>
+        public static PrototypeWeaponProfile Sniper => new(
+            PrototypeWeaponId.Sniper, "SNIPER", 1.15f, 46f, 16f, new Vector3(7.6f, 2.4f, 0f),
+            1.35f, 0.5f, new Color(1f, 0.86f, 0.16f), 4, projectileScale: 1.1f);
 
         public static PrototypeWeaponProfile Get(PrototypeWeaponId id) => id switch
         {
             PrototypeWeaponId.PulseSmg => PulseSmg,
             PrototypeWeaponId.ScatterBlaster => ScatterBlaster,
-            PrototypeWeaponId.RocketLauncher => RocketLauncher,
+            PrototypeWeaponId.Sniper => Sniper,
             _ => Carbine
         };
     }

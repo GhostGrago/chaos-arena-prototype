@@ -40,6 +40,17 @@ namespace ChaosArena
             mount.localScale = new Vector3(motor.Facing, 1f, 1f);
         }
 
+        // Kenney Blaster Kit (CC0). Meshes only: the pack's own colours are replaced with this project's
+        // palette so imported weapons sit inside the neon look instead of introducing a second art language.
+        private static readonly System.Collections.Generic.Dictionary<PrototypeWeaponId, (string Model, float Scale)> Models =
+            new()
+            {
+                { PrototypeWeaponId.Carbine, ("Weapons/blaster-d", 1.05f) },
+                { PrototypeWeaponId.PulseSmg, ("Weapons/blaster-b", 1.7f) },
+                { PrototypeWeaponId.ScatterBlaster, ("Weapons/blaster-a", 1.1f) },
+                { PrototypeWeaponId.Sniper, ("Weapons/blaster-e", 0.9f) }
+            };
+
         private void Rebuild(PrototypeWeaponId weapon)
         {
             for (int i = mount.childCount - 1; i >= 0; i--) Destroy(mount.GetChild(i).gameObject);
@@ -47,6 +58,10 @@ namespace ChaosArena
             PrototypeWeaponProfile profile = PrototypeWeaponProfile.Get(weapon);
             Color casing = new(0.14f, 0.16f, 0.22f);
             Color accent = profile.ProjectileColor;
+
+            // Falls back to the primitive build if the model is missing, so a failed import never leaves
+            // a fighter empty handed.
+            if (TryBuildModel(weapon, casing, accent)) return;
 
             switch (weapon)
             {
@@ -67,12 +82,13 @@ namespace ChaosArena
                     Neon("Choke", new Vector3(0.58f, 0f, 0f), new Vector3(0.06f, 0.26f, 0.22f), accent);
                     break;
 
-                case PrototypeWeaponId.RocketLauncher:
-                    Part("Tube", new Vector3(0.22f, 0.02f, 0f), new Vector3(0.72f, 0.26f, 0.26f), casing);
-                    Part("Fin Top", new Vector3(0.06f, 0.2f, 0f), new Vector3(0.24f, 0.16f, 0.05f), casing);
-                    Part("Fin Bottom", new Vector3(0.06f, -0.17f, 0f), new Vector3(0.24f, 0.13f, 0.05f), casing);
-                    Neon("Warhead", new Vector3(0.62f, 0.02f, 0f), new Vector3(0.14f, 0.2f, 0.2f), accent);
-                    Neon("Sight", new Vector3(0.16f, 0.19f, 0f), new Vector3(0.2f, 0.05f, 0.05f), accent);
+                case PrototypeWeaponId.Sniper:
+                    Part("Receiver", new Vector3(0.18f, 0f, 0f), new Vector3(0.46f, 0.17f, 0.15f), casing);
+                    Part("Long Barrel", new Vector3(0.74f, 0f, 0f), new Vector3(0.82f, 0.07f, 0.07f), casing);
+                    Part("Stock", new Vector3(-0.12f, -0.04f, 0f), new Vector3(0.26f, 0.14f, 0.12f), casing);
+                    Part("Bipod", new Vector3(0.62f, -0.14f, 0f), new Vector3(0.06f, 0.18f, 0.05f), casing);
+                    Neon("Scope", new Vector3(0.26f, 0.16f, 0f), new Vector3(0.36f, 0.08f, 0.08f), accent);
+                    Neon("Muzzle Brake", new Vector3(1.14f, 0f, 0f), new Vector3(0.12f, 0.12f, 0.12f), accent);
                     break;
 
                 default:
@@ -81,6 +97,40 @@ namespace ChaosArena
                     Neon("Sight", new Vector3(0.2f, 0.12f, 0f), new Vector3(0.22f, 0.05f, 0.05f), accent);
                     break;
             }
+        }
+
+        private bool TryBuildModel(PrototypeWeaponId weapon, Color casing, Color accent)
+        {
+            if (!Models.TryGetValue(weapon, out (string Model, float Scale) entry)) return false;
+
+            GameObject source = Resources.Load<GameObject>(entry.Model);
+            if (source == null) return false;
+
+            GameObject instance = Instantiate(source, mount, false);
+            instance.name = "Weapon Model";
+            instance.transform.localPosition = new Vector3(0.1f, -0.02f, 0f);
+            // Pack models point down +Z; the fighter fires along +X.
+            instance.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            instance.transform.localScale = Vector3.one * entry.Scale;
+
+            // Recolour into the project palette: the brightest original part becomes the accent so each
+            // weapon still carries its own signal colour, everything else reads as dark casing.
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer part in renderers)
+            {
+                foreach (Collider partCollider in part.GetComponents<Collider>())
+                {
+                    partCollider.enabled = false;
+                    Destroy(partCollider);
+                }
+
+                Color original = part.sharedMaterial != null ? part.sharedMaterial.color : Color.grey;
+                float luminance = original.r * 0.299f + original.g * 0.587f + original.b * 0.114f;
+                if (luminance > 0.55f) PrototypeMaterials.AssignNeon(part, accent, 1.4f);
+                else PrototypeMaterials.AssignSurface(part, casing, 0.65f, 0.5f);
+            }
+
+            return true;
         }
 
         private void Part(string name, Vector3 position, Vector3 scale, Color color)

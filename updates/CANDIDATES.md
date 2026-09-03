@@ -20,9 +20,9 @@ This file contains only unfinished feature candidates. The original detailed bac
 
 All five pellets connect at contact range for 17.5 internal damage and 6.25 base knockback in one trigger pull, before the health multiplier. Consider fewer pellets, lower per-pellet knockback, or close-range falloff.
 
-### U-016 — Rocket self-knockback
+### U-016 — 已作废：火箭已被狙击枪取代
 
-`Explode` skips the owner entirely, so firing a rocket at an adjacent enemy carries no risk. Decide whether this stays forgiving or gains self-knockback for risk/reward.
+火箭在 0.2.3 换成狙击枪，不再有溅射，自伤问题随之消失。`PrototypeProjectile.Explode` 与 `ExplosionRadius` 参数保留，但当前没有武器使用，将来加溅射武器时可直接复用。
 
 ### U-017 — 已在0.1.7完成：出界边界收紧与火箭穿台
 
@@ -96,6 +96,14 @@ All five pellets connect at contact range for 17.5 internal damage and 6.25 base
 ### U-028 — 模式框架与每模式镜头
 
 上述模式需要一个统一的规则框架（胜负条件、计分、出生、HUD可插拔），否则每加一个模式都要改 `PrototypeBootstrap`。当前镜头为固定2.5D侧视，不同模式可能需要不同视角，每套都是独立工程量。**建议在做第二个模式之前先抽出这个框架。**
+
+### U-029 — 联机等待室（用户2026-09-02提出，放入后续版本）
+
+当前房主开房后直接进入对局，其他人中途加入会触发一次重开。目标是先进等待室：看到所有已加入玩家的名字、选择模式与机器人数量，全部就位后由房主开始。这也顺带解决"加入时机不对齐"的问题。
+
+### U-030 — 客户端预测
+
+客户端目前没有预测，自己的移动要等一个来回才响应，实测可感知。`GAME_VISION` 已把「客户端预测自身移动、插值显示其他玩家」列为方向。⚠️ 预测需要输入重放与状态回滚，容易引入抖动，应作为独立批次谨慎处理。
 
 ## Following candidates
 

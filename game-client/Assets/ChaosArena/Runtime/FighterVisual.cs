@@ -63,7 +63,7 @@ namespace ChaosArena
         {
             if (visualRoot == null || body == null) return;
 
-            Vector3 velocity = rigidBody.linearVelocity;
+            Vector3 velocity = motor.PresentationVelocity;
             float speed01 = Mathf.Clamp01(Mathf.Abs(velocity.x) / 7f);
 
             // Airborne shapes tumble in their travel direction; grounded ones settle upright.

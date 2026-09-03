@@ -47,7 +47,7 @@ namespace ChaosArena
         private static readonly (PrototypeWeaponId Weapon, int PlatformIndex)[] PickupPlacement =
         {
             (PrototypeWeaponId.PulseSmg, 1),
-            (PrototypeWeaponId.RocketLauncher, 4),
+            (PrototypeWeaponId.Sniper, 4),
             (PrototypeWeaponId.ScatterBlaster, 6)
         };
 

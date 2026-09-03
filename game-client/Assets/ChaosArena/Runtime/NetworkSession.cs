@@ -24,6 +24,9 @@ namespace ChaosArena
 
         public static NetworkSession Instance { get; private set; }
 
+        /// <summary>Registered network prefab the host spawns to carry replication. Assigned by the scene builder.</summary>
+        public GameObject MatchPrefab;
+
         public SessionMode Mode { get; private set; } = SessionMode.Offline;
         public string JoinCode { get; private set; } = string.Empty;
         public string Status { get; private set; } = string.Empty;
@@ -80,6 +83,7 @@ namespace ChaosArena
                     throw new InvalidOperationException("StartHost failed.");
                 }
 
+                SpawnMatchObject();
                 Mode = SessionMode.Host;
                 Status = string.Empty;
             }
@@ -102,8 +106,11 @@ namespace ChaosArena
             if (string.IsNullOrWhiteSpace(code))
             {
                 Status = "Enter a room code first.";
+                Debug.Log("CHAOS_NET_JOIN_EMPTY_CODE");
                 return;
             }
+
+            Debug.Log($"CHAOS_NET_JOIN_ATTEMPT code={code.Trim().ToUpperInvariant()}");
 
             Busy = true;
             Status = "Signing in...";
@@ -128,6 +135,7 @@ namespace ChaosArena
                 Mode = SessionMode.Client;
                 JoinCode = code.Trim().ToUpperInvariant();
                 Status = string.Empty;
+                Debug.Log("CHAOS_NET_JOIN_STARTED");
             }
             catch (Exception error)
             {
@@ -139,6 +147,19 @@ namespace ChaosArena
             {
                 Busy = false;
             }
+        }
+
+        /// <summary>Only the host creates the replication object; clients receive it through the spawn message.</summary>
+        private void SpawnMatchObject()
+        {
+            if (NetMatch.Instance != null) return;
+            if (MatchPrefab == null)
+            {
+                throw new InvalidOperationException("Match prefab is not assigned; rebuild the prototype scene.");
+            }
+
+            GameObject instance = Instantiate(MatchPrefab);
+            instance.GetComponent<NetworkObject>().Spawn();
         }
 
         public void Leave()

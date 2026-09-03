@@ -6,6 +6,12 @@ namespace ChaosArena
     public sealed class WeaponPickup : MonoBehaviour
     {
         private static readonly List<WeaponPickup> all = new();
+
+        /// <summary>
+        /// Clients never decide pickups. Their fighters are moved by transform, so triggers still fire and a
+        /// client would otherwise grab a weapon the host never awarded and hide a pickup that is still there.
+        /// </summary>
+        public static bool LocalPickupsEnabled = true;
         private PrototypeWeaponProfile profile;
         private Renderer[] visuals;
         private Collider trigger;
@@ -25,17 +31,16 @@ namespace ChaosArena
             box.isTrigger = true;
             box.size = new Vector3(1.15f, 1.15f, 1.8f);
 
-            GameObject body = GameObject.CreatePrimitive(profile.Id == PrototypeWeaponId.RocketLauncher
-                ? PrimitiveType.Cylinder : PrimitiveType.Cube);
+            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
             body.name = profile.Name;
             body.transform.SetParent(root.transform, false);
             body.transform.localScale = profile.Id switch
             {
                 PrototypeWeaponId.PulseSmg => new Vector3(0.8f, 0.24f, 0.28f),
                 PrototypeWeaponId.ScatterBlaster => new Vector3(1f, 0.34f, 0.34f),
-                _ => new Vector3(0.2f, 0.55f, 0.2f)
+                PrototypeWeaponId.Sniper => new Vector3(1.35f, 0.16f, 0.16f),
+                _ => new Vector3(0.8f, 0.22f, 0.22f)
             };
-            if (profile.Id == PrototypeWeaponId.RocketLauncher) body.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             DisableAndDestroyCollider(body);
             PrototypeMaterials.Assign(body.GetComponent<Renderer>(), profile.ProjectileColor, true);
 
@@ -102,11 +107,17 @@ namespace ChaosArena
             all.Remove(this);
         }
 
+        /// <summary>Host-driven availability, so a client's pickups match what the host actually has.</summary>
+        public void SetRemoteAvailable(bool available)
+        {
+            if (IsAvailable != available) SetAvailable(available);
+        }
+
         private void Update()
         {
             if (!IsAvailable)
             {
-                if (Time.time >= respawnAt) SetAvailable(true);
+                if (LocalPickupsEnabled && Time.time >= respawnAt) SetAvailable(true);
                 return;
             }
 
@@ -116,7 +127,7 @@ namespace ChaosArena
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!IsAvailable) return;
+            if (!LocalPickupsEnabled || !IsAvailable) return;
             Fighter fighter = other.GetComponent<Fighter>();
             FighterMotor motor = other.GetComponent<FighterMotor>();
             if (fighter == null || fighter.IsEliminated || motor == null) return;

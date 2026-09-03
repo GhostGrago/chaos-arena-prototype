@@ -35,6 +35,7 @@ namespace ChaosArena
         public short Ammo;
         public sbyte Facing;
         public bool Active;
+        public bool Grounded;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -47,6 +48,26 @@ namespace ChaosArena
             serializer.SerializeValue(ref Ammo);
             serializer.SerializeValue(ref Facing);
             serializer.SerializeValue(ref Active);
+            serializer.SerializeValue(ref Grounded);
+        }
+    }
+
+    /// <summary>Match-wide state clients need to show the same result screen as the host.</summary>
+    public struct NetMatchState : INetworkSerializable
+    {
+        public bool Ended;
+        public sbyte WinnerSeat;
+        public float Duration;
+        public float RestartIn;
+        public byte PickupMask;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref Ended);
+            serializer.SerializeValue(ref WinnerSeat);
+            serializer.SerializeValue(ref Duration);
+            serializer.SerializeValue(ref RestartIn);
+            serializer.SerializeValue(ref PickupMask);
         }
     }
 
@@ -79,6 +100,7 @@ namespace ChaosArena
         public int LocalSeat { get; private set; }
         public int HumanSeats { get; private set; } = 1;
         public bool HasNetworkState { get; private set; }
+        public NetMatchState MatchState { get; private set; }
 
         public NetFighterState GetState(int index) => received[index];
 
@@ -160,15 +182,16 @@ namespace ChaosArena
         }
 
         [Rpc(SendTo.NotServer, Delivery = RpcDelivery.Unreliable)]
-        private void BroadcastStateRpc(NetFighterState[] states, int humanSeats)
+        private void BroadcastStateRpc(NetFighterState[] states, int humanSeats, NetMatchState matchState)
         {
             received = states;
             HumanSeats = humanSeats;
+            MatchState = matchState;
             HasNetworkState = true;
         }
 
         /// <summary>Called by the host once per frame with the live fighter list.</summary>
-        public void HostBroadcast(IReadOnlyList<Fighter> fighters)
+        public void HostBroadcast(IReadOnlyList<Fighter> fighters, NetMatchState matchState)
         {
             if (!IsServer || Time.time < nextSendTime) return;
             nextSendTime = Time.time + SendInterval;
@@ -189,11 +212,12 @@ namespace ChaosArena
                     Weapon = (byte)motor.WeaponId,
                     Ammo = (short)Mathf.Clamp(motor.Ammo, short.MinValue, short.MaxValue),
                     Facing = (sbyte)motor.Facing,
-                    Active = fighter.gameObject.activeSelf
+                    Active = fighter.gameObject.activeSelf,
+                    Grounded = motor.IsGrounded
                 };
             }
 
-            BroadcastStateRpc(states, HumanSeats);
+            BroadcastStateRpc(states, HumanSeats, matchState);
         }
 
         /// <summary>Reads the host's view of a remote client's input, for seats the host does not drive.</summary>
@@ -218,6 +242,25 @@ namespace ChaosArena
 
             return input;
         }
+
+        /// <summary>
+        /// Host tells everyone a shot was fired. Clients spawn a cosmetic projectile from this; damage and
+        /// hit detection stay on the host, so these carry no authority.
+        /// </summary>
+        public void BroadcastShot(int seat, PrototypeWeaponId weapon, Vector3 muzzle, Vector3 direction)
+        {
+            if (!IsServer || !IsSpawned) return;
+            ShotFiredRpc(seat, (byte)weapon, muzzle, direction);
+        }
+
+        [Rpc(SendTo.NotServer)]
+        private void ShotFiredRpc(int seat, byte weapon, Vector3 muzzle, Vector3 direction)
+        {
+            OnRemoteShot?.Invoke(seat, (PrototypeWeaponId)weapon, muzzle, direction);
+        }
+
+        /// <summary>Raised on clients when the host reports a shot. Bootstrap builds the visual round.</summary>
+        public event System.Action<int, PrototypeWeaponId, Vector3, Vector3> OnRemoteShot;
 
         /// <summary>Sends this client's own input up to the host.</summary>
         public void SubmitLocalInput(float horizontal, bool jumpPressed, bool dropPressed, bool fire)

@@ -53,6 +53,7 @@ namespace ChaosArena
         private bool paused;
         private bool inMenu = true;
         private string joinCodeEntry = string.Empty;
+        private float codeCopiedUntil;
 
         private static NetworkSession Session => NetworkSession.Instance;
         private bool Networked => Session != null && Session.Mode != SessionMode.Offline;
@@ -219,7 +220,7 @@ namespace ChaosArena
         /// <summary>Bot count must drive who actually takes part in the match.</summary>
         private void AssertBotCountRoster()
         {
-            for (int count = 1; count <= MaxBots; count++)
+            for (int count = 0; count <= MaxBots; count++)
             {
                 SetBotCount(count);
                 if (roster.Count != count + 1)
@@ -235,6 +236,12 @@ namespace ChaosArena
                         throw new System.InvalidOperationException("Fighters outside the roster must be deactivated.");
                     }
                 }
+            }
+
+            SetBotCount(0);
+            if (GetSoleSurvivor() != null)
+            {
+                throw new System.InvalidOperationException("A lone fighter must not be declared the winner.");
             }
 
             SetBotCount(1);
@@ -319,9 +326,21 @@ namespace ChaosArena
 
             if (!HasAuthority)
             {
+                CheckConnectionLost();
+                if (inMenu) return;
+                HookRemoteShots();
+                RefreshSeatRoles();
                 ApplyNetworkState();
                 return;
             }
+
+            if (Networked && HumanSeats != appliedHumanSeats)
+            {
+                appliedHumanSeats = HumanSeats;
+                StartMatch();
+            }
+
+            RefreshSeatRoles();
 
             if (!matchEnded)
             {
@@ -330,11 +349,15 @@ namespace ChaosArena
                 RetargetBots();
             }
 
-            if (Networked && NetMatch.Instance != null) NetMatch.Instance.HostBroadcast(roster);
+            if (Networked && NetMatch.Instance != null)
+            {
+                NetMatch.Instance.HostBroadcast(roster, BuildMatchState());
+            }
 
             if (matchEnded && autoRematchAt > 0f && Time.time >= autoRematchAt) StartMatch();
 
             if (Input.GetKeyDown(KeyCode.R)) StartMatch();
+            if (Input.GetKeyDown(KeyCode.Alpha0)) SetBotCount(0);
             if (Input.GetKeyDown(KeyCode.Alpha1)) SetBotCount(1);
             if (Input.GetKeyDown(KeyCode.Alpha2)) SetBotCount(2);
             if (Input.GetKeyDown(KeyCode.Alpha3)) SetBotCount(3);
@@ -350,6 +373,114 @@ namespace ChaosArena
             Time.timeScale = value ? 0f : 1f;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
+        }
+
+        private NetMatch hookedMatch;
+        private int appliedHumanSeats = 1;
+        private bool wasConnected;
+
+        // Last seen remote vitals, used to spot hits and ring-outs on a client purely from state changes.
+        private readonly float[] remoteHealth = new float[NetMatch.MaxFighters];
+        private readonly int[] remoteLives = new int[NetMatch.MaxFighters];
+        private readonly bool[] remoteActive = new bool[NetMatch.MaxFighters];
+
+        /// <summary>Seats currently held by people. Offline that is just the local player.</summary>
+        private int HumanSeats => Networked && NetMatch.Instance != null
+            ? Mathf.Clamp(NetMatch.Instance.HumanSeats, 1, NetMatch.MaxFighters)
+            : 1;
+
+        /// <summary>
+        /// Re-derives who owns each seat. Seat ownership used to be decided only inside StartMatch, so a
+        /// player joining mid-match kept being driven by the bot brain until the next match began, which
+        /// looked like the newcomer had spawned as an AI.
+        /// </summary>
+        private void RefreshSeatRoles()
+        {
+            int humans = HumanSeats;
+            bool authority = HasAuthority;
+
+            for (int seat = 0; seat < allFighters.Count; seat++)
+            {
+                Fighter fighter = allFighters[seat];
+                bool isHuman = seat < humans;
+                fighter.SetDisplayName(BuildSeatName(seat, humans));
+
+                BotController brain = fighter.GetComponent<BotController>();
+                if (brain != null)
+                {
+                    bool inRoster = roster.Contains(fighter);
+                    brain.enabled = authority && inRoster && !isHuman && !matchEnded;
+                }
+            }
+
+            // On a client the camera must follow the fighter this player actually drives.
+            if (Networked && NetMatch.Instance != null)
+            {
+                int seat = Mathf.Clamp(NetMatch.Instance.LocalSeat, 0, allFighters.Count - 1);
+                Fighter local = allFighters[seat];
+                if (local != player)
+                {
+                    player = local;
+                    FindAnyObjectByType<ArenaCameraFollow>()?.SetTarget(player.transform);
+                }
+            }
+        }
+
+        private string BuildSeatName(int seat, int humans)
+        {
+            if (seat >= humans) return $"BOT {seat - humans + 1}";
+            return Networked ? $"PLAYER {seat + 1}" : "PLAYER";
+        }
+
+        /// <summary>
+        /// Client-side: turn the host's shot announcements into visible, damage-free rounds. Tracks which
+        /// instance it bound to, so a rejoin or host restart re-subscribes instead of listening to a dead one.
+        /// </summary>
+        private void HookRemoteShots()
+        {
+            NetMatch net = NetMatch.Instance;
+            if (net == null || ReferenceEquals(net, hookedMatch)) return;
+
+            if (hookedMatch != null) hookedMatch.OnRemoteShot -= SpawnCosmeticShot;
+            net.OnRemoteShot += SpawnCosmeticShot;
+            hookedMatch = net;
+        }
+
+        private void SpawnCosmeticShot(int seat, PrototypeWeaponId weapon, Vector3 muzzle, Vector3 direction)
+        {
+            if (seat < 0 || seat >= allFighters.Count) return;
+            PrototypeWeaponProfile profile = PrototypeWeaponProfile.Get(weapon);
+            int facing = direction.x >= 0f ? 1 : -1;
+            int count = Mathf.Max(1, profile.ProjectilesPerShot);
+
+            for (int i = 0; i < count; i++)
+            {
+                float t = count == 1 ? 0.5f : i / (float)(count - 1);
+                float angle = Mathf.Lerp(-profile.SpreadDegrees * 0.5f, profile.SpreadDegrees * 0.5f, t);
+                Vector3 shot = Quaternion.Euler(0f, 0f, angle * facing) * Vector3.right * facing;
+                PrototypeProjectile.SpawnCosmetic(allFighters[seat], muzzle, shot, profile);
+            }
+
+            CombatVfx.Muzzle(muzzle, facing, profile.ProjectileColor);
+            PrototypeAudio.PlayShot(muzzle);
+        }
+
+        private NetMatchState BuildMatchState()
+        {
+            byte mask = 0;
+            for (int i = 0; i < WeaponPickup.All.Count && i < 8; i++)
+            {
+                if (WeaponPickup.All[i] != null && WeaponPickup.All[i].IsAvailable) mask |= (byte)(1 << i);
+            }
+
+            return new NetMatchState
+            {
+                Ended = matchEnded,
+                WinnerSeat = (sbyte)(winner != null ? allFighters.IndexOf(winner) : -1),
+                Duration = matchDuration,
+                RestartIn = Mathf.Max(0f, autoRematchAt - Time.time),
+                PickupMask = mask
+            };
         }
 
         /// <summary>Feeds each remote player's input into the fighter they own. Host only.</summary>
@@ -375,16 +506,68 @@ namespace ChaosArena
             NetMatch net = NetMatch.Instance;
             if (net == null || !net.HasNetworkState) return;
 
+            // Match outcome is host-owned; without this a client never saw the winner screen or the countdown.
+            NetMatchState match = net.MatchState;
+            matchEnded = match.Ended;
+            matchDuration = match.Duration;
+            autoRematchAt = match.Ended ? Time.time + match.RestartIn : -1f;
+            winner = match.Ended && match.WinnerSeat >= 0 && match.WinnerSeat < allFighters.Count
+                ? allFighters[match.WinnerSeat]
+                : null;
+
+            for (int i = 0; i < WeaponPickup.All.Count && i < 8; i++)
+            {
+                WeaponPickup pickup = WeaponPickup.All[i];
+                if (pickup != null) pickup.SetRemoteAvailable((match.PickupMask & (1 << i)) != 0);
+            }
+
             for (int i = 0; i < allFighters.Count && i < NetMatch.MaxFighters; i++)
             {
                 Fighter fighter = allFighters[i];
                 NetFighterState state = net.GetState(i);
+
+                // Impact feedback is derived from state changes rather than extra messages: a drop in health
+                // means a hit landed, and a drop in stock means a ring-out, so clients react without new RPCs.
+                if (state.Active)
+                {
+                    if (state.Health < remoteHealth[i] - 0.01f)
+                    {
+                        fighter.GetComponent<FighterVisual>()?.OnHit(1f - state.Health / Fighter.MaxHealth);
+                        CombatVfx.JellyBurst(fighter.transform.position, fighter.TintColor, 4, 0.45f, 4f);
+                    }
+
+                    if (state.Lives < remoteLives[i])
+                    {
+                        CombatVfx.JellyBurst(fighter.transform.position, fighter.TintColor, 18, 0.9f, 7f);
+                        CombatFeel.Impact(0.8f);
+                    }
+                }
+                else if (remoteActive[i] && remoteLives[i] > 0)
+                {
+                    CombatVfx.JellyBurst(fighter.transform.position, fighter.TintColor, 30, 1.15f, 9f);
+                    CombatFeel.Impact(1f);
+                }
+
+                remoteHealth[i] = state.Health;
+                remoteLives[i] = state.Lives;
+                remoteActive[i] = state.Active;
+
+                fighter.ApplyRemoteVitals(state.Health, state.Lives, state.ProtectionRemaining);
 
                 if (fighter.gameObject.activeSelf != state.Active) fighter.gameObject.SetActive(state.Active);
                 if (!state.Active) continue;
 
                 Rigidbody body = fighter.GetComponent<Rigidbody>();
                 if (body != null && !body.isKinematic) body.isKinematic = true;
+
+                // Velocity, facing, grounded and weapon drive the animation and the held gun model. Without
+                // these a client saw fighters slide around frozen, because the local motor never simulates.
+                FighterMotor motor = fighter.GetComponent<FighterMotor>();
+                if (motor != null)
+                {
+                    motor.ApplyRemoteState(state.Velocity, state.Facing, state.Grounded,
+                        (PrototypeWeaponId)state.Weapon, state.Ammo);
+                }
 
                 // Smoothed toward the authoritative position; snap when the gap is large, such as a respawn.
                 float gap = (fighter.transform.position - state.Position).sqrMagnitude;
@@ -417,6 +600,9 @@ namespace ChaosArena
         /// <summary>Returns the winner once exactly one roster fighter is still alive, otherwise null.</summary>
         private Fighter GetSoleSurvivor()
         {
+            // One participant is a waiting room, not a victory.
+            if (roster.Count < 2) return null;
+
             Fighter survivor = null;
             int alive = 0;
             foreach (Fighter fighter in roster)
@@ -435,7 +621,7 @@ namespace ChaosArena
             foreach (Fighter fighter in roster)
             {
                 BotController brain = fighter.GetComponent<BotController>();
-                if (brain == null || fighter.IsEliminated) continue;
+                if (brain == null || !brain.enabled || fighter.IsEliminated) continue;
 
                 Fighter nearest = null;
                 float nearestDistance = float.MaxValue;
@@ -454,7 +640,7 @@ namespace ChaosArena
 
         private void SetBotCount(int count)
         {
-            botCount = Mathf.Clamp(count, 1, MaxBots);
+            botCount = Mathf.Clamp(count, 0, MaxBots);
             StartMatch();
         }
 
@@ -483,7 +669,10 @@ namespace ChaosArena
             WeaponPickup.ResetAll();
 
             roster.Clear();
-            for (int i = 0; i <= botCount; i++) roster.Add(allFighters[i]);
+            int humans = HumanSeats;
+            int total = Mathf.Clamp(humans + botCount, humans, NetMatch.MaxFighters);
+            for (int i = 0; i < total && i < allFighters.Count; i++) roster.Add(allFighters[i]);
+            appliedHumanSeats = humans;
 
             foreach (Fighter fighter in allFighters)
             {
@@ -558,6 +747,7 @@ namespace ChaosArena
             WeaponVisual weaponVisual = fighterObject.AddComponent<WeaponVisual>();
             BuildFighterModel(fighterObject.transform, visual, weaponVisual, color, shape);
             fighterObject.AddComponent<ProtectionShield>();
+            fighterObject.GetComponent<FighterMotor>().SeatIndex = allFighters.Count;
             fighter.Initialize(fighterName, color, spawn);
             allFighters.Add(fighter);
             return fighter;
@@ -646,7 +836,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.2.0 — ONLINE HOST & JOIN", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.2.3 — EMPTY ROOMS & HOST SETTINGS", titleStyle);
 
             if (inMenu)
             {
@@ -681,7 +871,7 @@ namespace ChaosArena
             GUI.Label(new Rect(24f, Screen.height - 84f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
             GUI.Label(new Rect(24f, Screen.height - 60f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  R restart now");
             GUI.Label(new Rect(24f, Screen.height - 36f, 1100f, 26f),
-                $"1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})  •  ESC menu");
+                $"0/1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})  •  ESC menu");
         }
 
         /// <summary>
@@ -730,16 +920,23 @@ namespace ChaosArena
             if (GUI.Button(new Rect(left + 40f, top + 74f, width - 80f, 40f), "PLAY SOLO (vs BOTS)"))
             {
                 Session?.PlayOffline();
+                botCount = Mathf.Max(1, botCount);
                 BeginPlaying();
             }
 
             if (GUI.Button(new Rect(left + 40f, top + 122f, width - 80f, 40f), "HOST ONLINE ROOM"))
             {
+                // An opened room starts empty so arriving players are not padded out with bots.
+                botCount = 0;
                 Session?.HostRelay();
             }
 
-            GUI.Label(new Rect(left + 40f, top + 174f, 120f, 28f), "ROOM CODE", hudStyle);
-            joinCodeEntry = GUI.TextField(new Rect(left + 160f, top + 174f, 220f, 28f), joinCodeEntry, 8);
+            GUI.Label(new Rect(left + 20f, top + 174f, 110f, 28f), "ROOM CODE", hudStyle);
+            joinCodeEntry = GUI.TextField(new Rect(left + 128f, top + 174f, 170f, 28f), joinCodeEntry, 8);
+            if (GUI.Button(new Rect(left + 304f, top + 174f, 78f, 28f), "PASTE"))
+            {
+                joinCodeEntry = (GUIUtility.systemCopyBuffer ?? string.Empty).Trim().ToUpperInvariant();
+            }
 
             if (GUI.Button(new Rect(left + 40f, top + 210f, width - 80f, 40f), "JOIN ROOM"))
             {
@@ -756,7 +953,14 @@ namespace ChaosArena
 
             if (Session != null && Session.Mode == SessionMode.Host && !string.IsNullOrEmpty(Session.JoinCode))
             {
-                GUI.Label(new Rect(left, top + 258f, width, 34f), $"ROOM CODE: {Session.JoinCode}", titleStyle);
+                GUI.Label(new Rect(left + 20f, top + 256f, 250f, 30f), $"ROOM CODE: {Session.JoinCode}", hudStyle);
+                if (GUI.Button(new Rect(left + 276f, top + 256f, 106f, 28f),
+                    Time.unscaledTime < codeCopiedUntil ? "COPIED!" : "COPY CODE"))
+                {
+                    GUIUtility.systemCopyBuffer = Session.JoinCode;
+                    codeCopiedUntil = Time.unscaledTime + 1.5f;
+                }
+
                 if (GUI.Button(new Rect(left + 40f, top + 292f, width - 80f, 34f), "START MATCH")) BeginPlaying();
             }
             else if (Session != null && Session.Mode == SessionMode.Client)
@@ -774,40 +978,117 @@ namespace ChaosArena
         private void BeginPlaying()
         {
             inMenu = false;
-            StartMatch();
+            wasConnected = false;
+            WeaponPickup.LocalPickupsEnabled = HasAuthority;
+
+            for (int i = 0; i < NetMatch.MaxFighters; i++)
+            {
+                remoteHealth[i] = Fighter.MaxHealth;
+                remoteLives[i] = Fighter.StartingLives;
+                remoteActive[i] = true;
+            }
+
+            if (HasAuthority) StartMatch();
+        }
+
+        /// <summary>
+        /// A client whose session drops would otherwise sit in a frozen match forever. Only counts as a drop
+        /// once the client has actually been connected: StartClient returns before approval completes, so
+        /// checking IsConnectedClient too early tore down the connection that was still being established.
+        /// </summary>
+        private void CheckConnectionLost()
+        {
+            if (HasAuthority || Session == null) return;
+
+            NetworkManager manager = NetworkManager.Singleton;
+            if (manager != null && manager.IsConnectedClient)
+            {
+                wasConnected = true;
+                return;
+            }
+
+            if (!wasConnected) return;
+
+            Debug.Log("CHAOS_NET_CONNECTION_LOST");
+            wasConnected = false;
+            Session.Leave();
+            WeaponPickup.LocalPickupsEnabled = true;
+            inMenu = true;
         }
 
         private void DrawPauseMenu()
         {
-            const float width = 320f;
-            const float height = 300f;
+            const float width = 360f;
+            const float height = 430f;
             float left = Screen.width * 0.5f - width * 0.5f;
             float top = Screen.height * 0.5f - height * 0.5f;
+            float inner = width - 80f;
 
             GUI.Box(new Rect(left, top, width, height), "");
-            GUI.Label(new Rect(left, top + 20f, width, 40f), "PAUSED", resultStyle);
+            GUI.Label(new Rect(left, top + 16f, width, 40f), "PAUSED", resultStyle);
 
-            if (GUI.Button(new Rect(left + 40f, top + 82f, width - 80f, 40f), "RESUME")) SetPaused(false);
+            // Match settings belong to whoever runs the simulation, so only the host may change them.
+            bool canConfigure = HasAuthority;
+            GUI.enabled = canConfigure;
 
-            if (GUI.Button(new Rect(left + 40f, top + 130f, width - 80f, 40f), "RESTART MATCH"))
+            GUI.Label(new Rect(left + 40f, top + 64f, inner, 24f), "DIFFICULTY", hudStyle);
+            DrawChoiceRow(left + 40f, top + 88f, inner,
+                new[] { "EASY", "NORMAL", "HARD" },
+                (int)difficulty,
+                index => SetDifficulty((BotDifficulty)index));
+
+            GUI.Label(new Rect(left + 40f, top + 130f, inner, 24f), "BOTS", hudStyle);
+            DrawChoiceRow(left + 40f, top + 154f, inner,
+                new[] { "0", "1", "2", "3" },
+                botCount,
+                SetBotCount);
+
+            GUI.enabled = true;
+
+            if (!canConfigure)
+            {
+                GUI.Label(new Rect(left + 40f, top + 192f, inner, 24f), "Only the host can change match settings.");
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 222f, inner, 38f), "RESUME")) SetPaused(false);
+
+            GUI.enabled = canConfigure;
+            if (GUI.Button(new Rect(left + 40f, top + 266f, inner, 38f), "RESTART MATCH"))
             {
                 SetPaused(false);
                 StartMatch();
             }
+            GUI.enabled = true;
 
-            if (GUI.Button(new Rect(left + 40f, top + 178f, width - 80f, 40f), "LEAVE TO MENU"))
+            if (GUI.Button(new Rect(left + 40f, top + 310f, inner, 38f), "LEAVE TO MENU"))
             {
                 SetPaused(false);
                 Session?.Leave();
+                WeaponPickup.LocalPickupsEnabled = true;
                 inMenu = true;
             }
 
-            if (GUI.Button(new Rect(left + 40f, top + 220f, width - 80f, 36f), "QUIT GAME"))
+            if (GUI.Button(new Rect(left + 40f, top + 354f, inner, 34f), "QUIT GAME"))
             {
                 Application.Quit();
             }
 
             GUI.Label(new Rect(left, top + height - 26f, width, 24f), "ESC closes this menu", titleStyle);
+        }
+
+        /// <summary>Row of mutually exclusive options; the active one is marked so the state is readable.</summary>
+        private void DrawChoiceRow(float left, float top, float width, string[] labels, int active, System.Action<int> onPick)
+        {
+            float gap = 6f;
+            float itemWidth = (width - gap * (labels.Length - 1)) / labels.Length;
+            for (int i = 0; i < labels.Length; i++)
+            {
+                string label = i == active ? $"[ {labels[i]} ]" : labels[i];
+                if (GUI.Button(new Rect(left + i * (itemWidth + gap), top, itemWidth, 32f), label) && i != active)
+                {
+                    onPick(i);
+                }
+            }
         }
 
         private void DrawFighterPanel(Fighter fighter, float x, float y)

@@ -23,6 +23,21 @@ namespace ChaosArena
         private float protectedUntil;
 
         public string DisplayName => displayName;
+
+        /// <summary>Seats change owner as players join, so the label is not fixed at creation.</summary>
+        public void SetDisplayName(string newName) => displayName = newName;
+
+        /// <summary>
+        /// Applies host-authoritative vitals on a client. Without this the client HUD kept showing the local
+        /// starting values and the protection shield never appeared, because both derive from private state
+        /// that only the host mutates.
+        /// </summary>
+        public void ApplyRemoteVitals(float health, int lives, float protectionRemaining)
+        {
+            Health = health;
+            Lives = lives;
+            protectedUntil = protectionRemaining > 0f ? Time.time + protectionRemaining : 0f;
+        }
         public float Health { get; private set; } = MaxHealth;
         public int Lives { get; private set; } = StartingLives;
         public float KnockbackMultiplier => Mathf.Lerp(3.5f, 1f, Health / MaxHealth);

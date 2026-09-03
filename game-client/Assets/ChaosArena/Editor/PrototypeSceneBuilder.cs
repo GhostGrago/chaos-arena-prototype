@@ -17,6 +17,8 @@ namespace ChaosArena.Editor
         private const string SettingsDirectory = "Assets/Settings";
         private const string PipelinePath = SettingsDirectory + "/PrototypeURP.asset";
         private const string MaterialDirectory = "Assets/Resources/ChaosArenaMaterials";
+        private const string NetworkPrefabDirectory = "Assets/NetworkPrefabs";
+        private const string NetMatchPrefabPath = NetworkPrefabDirectory + "/NetMatch.prefab";
         private const string LitMaterialPath = MaterialDirectory + "/PrototypeLit.mat";
         private const string UnlitMaterialPath = MaterialDirectory + "/PrototypeUnlit.mat";
 
@@ -26,6 +28,7 @@ namespace ChaosArena.Editor
             Directory.CreateDirectory(SceneDirectory);
             Directory.CreateDirectory(SettingsDirectory);
             Directory.CreateDirectory(MaterialDirectory);
+            Directory.CreateDirectory(NetworkPrefabDirectory);
 
             ConfigureRendering();
             ConfigureMaterials();
@@ -54,7 +57,7 @@ namespace ChaosArena.Editor
             GameObject managerObject = new("Network Manager");
             NetworkManager manager = managerObject.AddComponent<NetworkManager>();
             UnityTransport transport = managerObject.AddComponent<UnityTransport>();
-            managerObject.AddComponent<NetworkSession>();
+            NetworkSession session = managerObject.AddComponent<NetworkSession>();
 
             manager.NetworkConfig ??= new NetworkConfig();
             manager.NetworkConfig.NetworkTransport = transport;
@@ -62,9 +65,23 @@ namespace ChaosArena.Editor
             manager.NetworkConfig.EnableSceneManagement = false;
             manager.NetworkConfig.PlayerPrefab = null;
 
-            GameObject matchObject = new("Net Match");
-            matchObject.AddComponent<NetworkObject>();
-            matchObject.AddComponent<NetMatch>();
+            // NetMatch is a registered prefab the host spawns, not an in-scene object. With scene management
+            // off, Netcode never marks in-scene NetworkObjects as such and replicates them as dynamic spawns,
+            // so a scene instance made clients fail with "NetworkPrefab could not be found".
+            GameObject matchPrefab = CreateNetMatchPrefab();
+            manager.NetworkConfig.Prefabs.Add(new NetworkPrefab { Prefab = matchPrefab });
+            session.MatchPrefab = matchPrefab;
+        }
+
+        private static GameObject CreateNetMatchPrefab()
+        {
+            Directory.CreateDirectory(NetworkPrefabDirectory);
+            GameObject temp = new("Net Match");
+            temp.AddComponent<NetworkObject>();
+            temp.AddComponent<NetMatch>();
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(temp, NetMatchPrefabPath);
+            Object.DestroyImmediate(temp);
+            return prefab;
         }
 
         [MenuItem("Tools/Chaos Arena/Build Windows Prototype")]

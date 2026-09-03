@@ -8,8 +8,19 @@ namespace ChaosArena
         private Vector3 direction;
         private float expiresAt;
         private PrototypeWeaponProfile weapon;
+        private bool cosmetic;
 
-        public static void Spawn(Fighter newOwner, Vector3 position, Vector3 newDirection, PrototypeWeaponProfile profile)
+        /// <summary>
+        /// Cosmetic rounds exist only so clients can see the host's shots. They travel and spark but never
+        /// apply damage or knockback, because the host already resolved the hit.
+        /// </summary>
+        public static void SpawnCosmetic(Fighter newOwner, Vector3 position, Vector3 newDirection, PrototypeWeaponProfile profile)
+        {
+            Spawn(newOwner, position, newDirection, profile, true);
+        }
+
+        public static void Spawn(Fighter newOwner, Vector3 position, Vector3 newDirection, PrototypeWeaponProfile profile,
+            bool isCosmetic = false)
         {
             GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             projectile.name = $"Projectile_{newOwner.DisplayName}";
@@ -37,6 +48,7 @@ namespace ChaosArena
             behavior.owner = newOwner;
             behavior.direction = newDirection.normalized;
             behavior.weapon = profile;
+            behavior.cosmetic = isCosmetic;
             behavior.expiresAt = Time.time + 2f;
         }
 
@@ -65,6 +77,13 @@ namespace ChaosArena
             }
 
             int horizontalDirection = direction.x >= 0f ? 1 : -1;
+            if (cosmetic)
+            {
+                CombatVfx.Impact(transform.position, horizontalDirection, weapon.ProjectileColor, target != null);
+                Destroy(gameObject);
+                return;
+            }
+
             if (weapon.ExplosionRadius > 0f)
             {
                 Explode(horizontalDirection);

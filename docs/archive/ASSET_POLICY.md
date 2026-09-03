@@ -44,3 +44,18 @@
 | Attribution | 是否需要署名及署名文字 |
 | Allowed Use | 内部占位 / 商业使用 / 修改 / 再分发 |
 | Replacement | 原创替换任务及状态 |
+
+## 已登记的第三方素材
+
+| 字段 | 值 |
+|---|---|
+| Asset ID | TP-001 |
+| Filename | `game-client/Assets/Resources/Weapons/blaster-{a,b,d,e}.obj` |
+| Category | ThirdParty/Licensed |
+| Source | https://kenney.nl/assets/blaster-kit （Blaster Kit 2.1） |
+| Author | Kenney (www.kenney.nl) |
+| License | Creative Commons Zero (CC0 1.0) |
+| Attribution | 不要求；许可原文：「You can use this content for personal, educational, and commercial purposes.」 |
+| Allowed Use | 商业使用 / 修改 / 随游戏再分发 |
+| Replacement | 无需替换；CC0 可直接用于公开构建 |
+| 备注 | 仅使用网格。原始配色被运行时替换为本项目调色板，避免引入第二套美术语言。许可证原文随资产存放于 `Kenney-BlasterKit-License.txt`。 |

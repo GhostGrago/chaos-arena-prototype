@@ -26,6 +26,9 @@ namespace ChaosArena
         private PrototypeWeaponProfile weapon = PrototypeWeaponProfile.Carbine;
         private int ammo = -1;
 
+        /// <summary>Roster slot this fighter occupies; used to attribute networked shots.</summary>
+        public int SeatIndex { get; set; }
+
         // Hitstun. The motor overwrites horizontal velocity every physics step, so without a control lock the
         // movement code cancels an incoming knockback within about 0.09s on the ground and the hit reads as
         // having no effect at all. During the lock the fighter keeps its momentum and only light drag applies.
@@ -35,6 +38,23 @@ namespace ChaosArena
 
         public int Facing => facing;
         public bool IsGrounded { get; private set; }
+
+        // On a client the motor does not simulate, so the visual layer reads these instead of the rigidbody,
+        // which is kinematic and therefore reports no velocity at all.
+        private Vector3 remoteVelocity;
+        private bool usingRemoteState;
+        public Vector3 PresentationVelocity => usingRemoteState ? remoteVelocity : body.linearVelocity;
+
+        /// <summary>Applies host-authoritative presentation state on a client.</summary>
+        public void ApplyRemoteState(Vector3 velocity, int newFacing, bool grounded, PrototypeWeaponId weaponId, int remoteAmmo)
+        {
+            usingRemoteState = true;
+            remoteVelocity = velocity;
+            if (newFacing != 0) facing = newFacing;
+            IsGrounded = grounded;
+            if (weapon.Id != weaponId) weapon = PrototypeWeaponProfile.Get(weaponId);
+            ammo = remoteAmmo;
+        }
         public bool InKnockback => Time.time < controlLockUntil;
 
         /// <summary>Suspends movement control so an applied knockback impulse actually survives.</summary>
@@ -135,6 +155,12 @@ namespace ChaosArena
                     Vector3 shotDirection = Quaternion.Euler(0f, 0f, angle * facing) * Vector3.right * facing;
                     PrototypeProjectile.Spawn(fighter, muzzle, shotDirection, weapon);
                 }
+                // Clients cannot see host-side firing, so the shot is announced for cosmetic replication.
+                if (NetMatch.Instance != null && NetMatch.Instance.IsServer)
+                {
+                    NetMatch.Instance.BroadcastShot(SeatIndex, weapon.Id, muzzle, new Vector3(facing, 0f, 0f));
+                }
+
                 body.AddForce(Vector3.left * (facing * weapon.ShooterRecoil), ForceMode.VelocityChange);
                 GetComponent<FighterVisual>()?.OnFire(weapon.VisualRecoil);
                 CombatVfx.Muzzle(muzzle, facing, weapon.ProjectileColor);
