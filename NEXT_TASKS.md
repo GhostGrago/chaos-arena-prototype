@@ -4,7 +4,7 @@ Updated: 2026-09-03
 
 ## P0 — Current
 
-- Hands-on the 2026-09-03 batch. Nothing in it has been played yet; the build and smoke test only prove it runs.
+- Hands-on Prototype 0.4.0. Nothing in it has been played yet; the build and smoke test only prove it runs.
   - Speed streak: is the 9.5 threshold right, and are the length and width readable without smearing?
   - Bot ladder: play EASY through MASTER. MASTER is deliberately unfair; NORMAL is the old HARD plus the new accuracy systems, so the default is considerably stronger than before.
   - Launch recovery: bots now spend the air jump to climb back onto the deck. Decide whether this makes a launch feel worthless; if so, restrict it to EXPERT and MASTER.
@@ -40,9 +40,9 @@ Updated: 2026-09-03
 
 ## Recently completed
 
-- Three-player physical input confirmed by the user (keyboard + Xbox + DualSense). The 0.3.0 three-seat item is closed.
-- 2026-09-03 batch inside 0.3.0: layered impact feedback and a continuous speed streak; a five-tier bot ladder with lead prediction, line-of-sight, range discipline, dodging and launch recovery; a rebuilt menu, couch lobby and lives-only HUD; four-player local seats; weapon orientation, drop size and charge ring; four themed arenas with moving platforms; shield and shrink power-ups.
-- Fixed a self-inflicted regression in the same batch where bots moved and dodged but never fired, and added a negative-tested assertion covering it.
+- Prototype 0.3.0 closed: three-player physical input confirmed by the user (keyboard + Xbox + DualSense).
+- Prototype 0.4.0: layered impact feedback and a continuous speed streak; a five-tier bot ladder with lead prediction, line-of-sight, range discipline, dodging and launch recovery; a rebuilt menu, couch lobby and lives-only HUD; four-player local seats; weapon orientation, drop size and charge ring; four themed arenas with moving platforms; shield and shrink power-ups.
+- Fixed a self-inflicted regression in 0.4.0 where bots moved and dodged but never fired, and added a negative-tested assertion covering it.
 
 - Prototype 0.3.0 milestone in progress: local two-player, controller input, dual-trigger firing, physical shooter recoil and display settings are maintained as one integrated version rather than separate patch-version increments.
 - U-035 integrated into the same 0.3.0 milestone: local three-player menu mode, Unity Input System 1.19.0, separate Xbox/DualSense device slots, three-target camera and live two-gamepad detection; physical three-person gameplay pending.

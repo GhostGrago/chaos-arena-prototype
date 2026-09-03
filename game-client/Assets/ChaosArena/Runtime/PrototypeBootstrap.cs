@@ -216,7 +216,7 @@ namespace ChaosArena
             AssertPowerUpsApply();
             AssertMovingPlatformsCarryRiders();
             AssertEveryArenaBuilds();
-            Debug.Log("CHAOS_ARENA_030_ASSERTIONS_PASS: local four-player roster/input/camera, 4K display presets, dual-trigger firing, physical shooter recoil, extended recovery bounds, stronger slower sniper, random drops, shield and shrink power-ups, four buildable arenas, moving platforms, pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, five-tier bot ladder, bot firing solutions, speed streak wiring, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_040_ASSERTIONS_PASS: local four-player roster/input/camera, 4K display presets, dual-trigger firing, physical shooter recoil, extended recovery bounds, stronger slower sniper, random drops, shield and shrink power-ups, four buildable arenas, moving platforms, pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, five-tier bot ladder, bot firing solutions, speed streak wiring, elimination, winner, and rematch reset verified.");
         }
 
         private static void AssertDisplaySettingsContract()
@@ -1346,7 +1346,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, UiWidth, 30f), "PROTOTYPE 0.3.0 — LOCAL MULTIPLAYER", titleStyle);
+            GUI.Label(new Rect(0f, 12f, UiWidth, 30f), "PROTOTYPE 0.4.0 — ARENAS, POWER-UPS, BOT LADDER", titleStyle);
 
             if (showDisplaySettings)
             {
