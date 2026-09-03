@@ -49,6 +49,7 @@ namespace ChaosArena
         private float matchStartedAt;
         private float matchDuration;
         private int botCount = 1;
+        private bool paused;
         private BotDifficulty difficulty = BotDifficulty.Easy;
 
         // Playtest builds restart on their own so a session never parks on a result screen waiting for input.
@@ -115,9 +116,11 @@ namespace ChaosArena
 
             AssertGeometricBodies();
             AssertKnockbackSurvivesMovement();
+            AssertProtectionWeakensRatherThanBlocks();
+            AssertPauseRestoresTime();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_0111_ASSERTIONS_PASS: knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_0111_ASSERTIONS_PASS: pause menu, weakened protection, knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -173,6 +176,33 @@ namespace ChaosArena
             if (motor.InKnockback) throw new System.InvalidOperationException("Fighter should start free of knockback stun.");
             motor.ApplyKnockbackStun(0.3f);
             if (!motor.InKnockback) throw new System.InvalidOperationException("Knockback stun failed to engage.");
+        }
+
+        /// <summary>
+        /// Respawn protection must reduce a hit, not erase it. Full immunity read as the attack failing to
+        /// register, so a protected fighter has to lose some health and still take some knockback.
+        /// </summary>
+        private void AssertProtectionWeakensRatherThanBlocks()
+        {
+            if (!player.IsProtected)
+            {
+                throw new System.InvalidOperationException("A fighter should be protected right after a match starts.");
+            }
+
+            float before = player.Health;
+            player.TakeHit(20f, new Vector3(5f, 2f, 0f));
+            float taken = before - player.Health;
+            if (taken <= 0f) throw new System.InvalidOperationException("Protection must not block damage entirely.");
+            if (taken >= 20f) throw new System.InvalidOperationException("Protection must reduce incoming damage.");
+        }
+
+        /// <summary>Pausing must not leave the game frozen once the menu closes.</summary>
+        private void AssertPauseRestoresTime()
+        {
+            SetPaused(true);
+            if (!Mathf.Approximately(Time.timeScale, 0f)) throw new System.InvalidOperationException("Pause did not stop time.");
+            SetPaused(false);
+            if (!Mathf.Approximately(Time.timeScale, 1f)) throw new System.InvalidOperationException("Resume did not restore time.");
         }
 
         /// <summary>Bot count must drive who actually takes part in the match.</summary>
@@ -271,6 +301,9 @@ namespace ChaosArena
                 return;
             }
 
+            if (Input.GetKeyDown(KeyCode.Escape)) SetPaused(!paused);
+            if (paused) return;
+
             if (!matchEnded)
             {
                 CheckRingOuts();
@@ -286,6 +319,15 @@ namespace ChaosArena
             if (Input.GetKeyDown(KeyCode.F1)) SetDifficulty(BotDifficulty.Easy);
             if (Input.GetKeyDown(KeyCode.F2)) SetDifficulty(BotDifficulty.Normal);
             if (Input.GetKeyDown(KeyCode.F3)) SetDifficulty(BotDifficulty.Hard);
+        }
+
+        private void SetPaused(bool value)
+        {
+            paused = value;
+            CombatFeel.SetPaused(value);
+            Time.timeScale = value ? 0f : 1f;
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
         }
 
         private void CheckRingOuts()
@@ -555,10 +597,16 @@ namespace ChaosArena
 
             DrawOffscreenIndicator();
 
+            if (paused)
+            {
+                DrawPauseMenu();
+                return;
+            }
+
             GUI.Label(new Rect(24f, Screen.height - 84f, 900f, 26f), "More hits make fighters easier to launch — ring-outs cost lives.");
             GUI.Label(new Rect(24f, Screen.height - 60f, 1100f, 26f), "A/D move  •  Space double-jump  •  S drop through  •  J fire  •  R restart now");
             GUI.Label(new Rect(24f, Screen.height - 36f, 1100f, 26f),
-                $"1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})");
+                $"1/2/3 bot count (now {botCount})  •  F1/F2/F3 difficulty (now {difficulty.ToString().ToUpperInvariant()})  •  ESC menu");
         }
 
         /// <summary>
@@ -588,6 +636,32 @@ namespace ChaosArena
             GUI.color = FighterColors[0];
             GUI.Box(new Rect(screenX - 46f, screenY - 16f, 92f, 32f), "YOU ▸");
             GUI.color = previous;
+        }
+
+        private void DrawPauseMenu()
+        {
+            const float width = 320f;
+            const float height = 250f;
+            float left = Screen.width * 0.5f - width * 0.5f;
+            float top = Screen.height * 0.5f - height * 0.5f;
+
+            GUI.Box(new Rect(left, top, width, height), "");
+            GUI.Label(new Rect(left, top + 20f, width, 40f), "PAUSED", resultStyle);
+
+            if (GUI.Button(new Rect(left + 40f, top + 82f, width - 80f, 40f), "RESUME")) SetPaused(false);
+
+            if (GUI.Button(new Rect(left + 40f, top + 130f, width - 80f, 40f), "RESTART MATCH"))
+            {
+                SetPaused(false);
+                StartMatch();
+            }
+
+            if (GUI.Button(new Rect(left + 40f, top + 178f, width - 80f, 40f), "QUIT GAME"))
+            {
+                Application.Quit();
+            }
+
+            GUI.Label(new Rect(left, top + height - 26f, width, 24f), "ESC closes this menu", titleStyle);
         }
 
         private void DrawFighterPanel(Fighter fighter, float x, float y)

@@ -59,6 +59,28 @@ AI 一直在主动移动并朝玩家推进，正好落在最差的一档，所�
 - Windows Development Build：`Build Successful`。
 - `-chaosSmokeTest` 通过：`CHAOS_ARENA_0111_ASSERTIONS_PASS`、`SMOKE_READY`、`SMOKE_PASS`。
 
+## 0.1.11 发布前的追加调整（2026-09-02，未新增版本号）
+
+### 重生保护改为减伤减击退
+
+用户决定：保护期不再完全免疫，改为削弱。完全免疫会让攻击看起来"没有判定"，即使有护盾圆环提示，读起来仍像 bug。
+
+- 保护期内伤害 ×0.35，击退 ×0.4（`Fighter.ProtectedDamageScale` / `ProtectedKnockbackScale`）。
+- 保护时长不变：出界重生 1.2 秒、开局与重赛 0.9 秒。
+- 现在保护期内攻击**有明确反馈**，只是难以立刻再次淘汰对手。
+
+新增断言 `AssertProtectionWeakensRatherThanBlocks`：受保护角色必须掉血但掉得比正常少，两个方向都检查。
+
+### ESC 暂停菜单
+
+此前**没有任何退出游戏的方式**，窗口只能靠任务管理器关闭。
+
+- `ESC` 开关菜单，菜单内含 `RESUME` / `RESTART MATCH` / `QUIT GAME`。
+- 暂停时 `Time.timeScale = 0`，并挂起比赛逻辑与所有游戏热键。
+- `CombatFeel` 新增暂停感知：否则命中顿帧的计时器会在暂停期间把 `timeScale` 恢复成 1，导致菜单背后游戏继续跑。
+
+新增断言 `AssertPauseRestoresTime`：暂停后 `timeScale` 为 0、恢复后回到 1。
+
 ## 仍需试玩确认
 
 - 硬直 0.15–0.45 秒是否合适。**过长会让被打时感觉失控、操作黏滞**，这是本版最主要的风险。

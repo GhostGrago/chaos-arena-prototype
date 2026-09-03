@@ -14,6 +14,19 @@ namespace ChaosArena
         private const float ShakeDecay = 3.6f;
 
         private static CombatFeel instance;
+        private static bool paused;
+
+        /// <summary>
+        /// While the game is paused the pause owner controls Time.timeScale. Without this the hitstop timer
+        /// would happily restore timeScale to 1 mid-pause and unfreeze the game behind the menu.
+        /// </summary>
+        public static void SetPaused(bool value)
+        {
+            paused = value;
+            if (!value || instance == null) return;
+            instance.freezeUntilUnscaled = -1f;
+            instance.shake = 0f;
+        }
 
         private float freezeUntilUnscaled = -1f;
         private float shake;
@@ -37,6 +50,8 @@ namespace ChaosArena
 
         private void ApplyImpact(float strength01)
         {
+            if (paused) return;
+
             // Batch runs have no display and must not have their fixed timestep disturbed by a time freeze.
             if (!Application.isBatchMode)
             {
@@ -50,6 +65,8 @@ namespace ChaosArena
 
         private void Update()
         {
+            if (paused) return;
+
             if (freezeUntilUnscaled > 0f && Time.unscaledTime >= freezeUntilUnscaled)
             {
                 freezeUntilUnscaled = -1f;

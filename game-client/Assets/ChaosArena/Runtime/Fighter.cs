@@ -7,9 +7,13 @@ namespace ChaosArena
         public const float MaxHealth = 100f;
         public const int StartingLives = 3;
 
-        // Time a fighter is immune after a ring-out. Long enough to reorient before re-entering the fight.
+        // Grace window after a ring-out, long enough to reorient before re-entering the fight. Protection
+        // weakens incoming hits rather than voiding them: full immunity made attacks look like they had
+        // failed to register, which reads as a bug even when the shield ring is visible.
         public const float RespawnProtectionSeconds = 1.2f;
         public const float RoundStartProtectionSeconds = 0.9f;
+        public const float ProtectedDamageScale = 0.35f;
+        public const float ProtectedKnockbackScale = 0.4f;
 
         [SerializeField] private string displayName = "Fighter";
         [SerializeField] private Color fighterColor = Color.white;
@@ -40,9 +44,13 @@ namespace ChaosArena
 
         public void TakeHit(float damage, Vector3 baseKnockback)
         {
-            if (IsEliminated || IsProtected) return;
-            Health = Mathf.Max(0f, Health - damage);
-            Vector3 impulse = baseKnockback * KnockbackMultiplier;
+            if (IsEliminated) return;
+
+            float damageScale = IsProtected ? ProtectedDamageScale : 1f;
+            float knockbackScale = IsProtected ? ProtectedKnockbackScale : 1f;
+
+            Health = Mathf.Max(0f, Health - damage * damageScale);
+            Vector3 impulse = baseKnockback * (KnockbackMultiplier * knockbackScale);
             body.AddForce(impulse, ForceMode.VelocityChange);
             GetComponent<FighterVisual>()?.OnHit(Danger01);
 
