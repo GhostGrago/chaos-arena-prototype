@@ -4,7 +4,7 @@ Updated: 2026-09-01
 
 ## P0 — Current
 
-- Playtest Prototype 0.1.10: judge translucency level, overlapping-fighter sorting, and edge frame visibility.
+- Playtest Prototype 0.1.11: judge whether hitstun length feels right and whether carbine knockback now reads at full health.
 - Re-test balance from scratch: the new arena invalidates the 0.1.4/0.1.5 weapon and ring-out conclusions.
 - Record feedback on hitstop length, camera shake, rim light readability and parallax strength.
 - Convert concrete feedback into tuning or bug-fix tasks.
@@ -20,6 +20,7 @@ Updated: 2026-09-01
 
 - Generated and validated the Claude handoff entry file and full engineering report for Prototype 0.1.4.
 - Prototype 0.1.4: final-stock match ending, winner/rematch loop, arena-anchored local-player soft-follow camera, and three fixed limited-ammo weapon pickups.
+- Prototype 0.1.11: knockback hitstun fix, fighter edge frame removed.
 - Prototype 0.1.10: transparent jelly material asset, transparency assertion, edge frame colour fix.
 - Prototype 0.1.9: jelly surfaces, spring jiggle, reduced bloom, jelly bursts on hits and elimination.
 - Prototype 0.1.8: neon geometry with bloom, per-weapon held models, ledge grab withdrawn.

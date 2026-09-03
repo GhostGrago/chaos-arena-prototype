@@ -26,8 +26,22 @@ namespace ChaosArena
         private PrototypeWeaponProfile weapon = PrototypeWeaponProfile.Carbine;
         private int ammo = -1;
 
+        // Hitstun. The motor overwrites horizontal velocity every physics step, so without a control lock the
+        // movement code cancels an incoming knockback within about 0.09s on the ground and the hit reads as
+        // having no effect at all. During the lock the fighter keeps its momentum and only light drag applies.
+        private float controlLockUntil;
+        private const float GroundKnockbackDrag = 5f;
+        private const float AirKnockbackDrag = 1.2f;
+
         public int Facing => facing;
         public bool IsGrounded { get; private set; }
+        public bool InKnockback => Time.time < controlLockUntil;
+
+        /// <summary>Suspends movement control so an applied knockback impulse actually survives.</summary>
+        public void ApplyKnockbackStun(float seconds)
+        {
+            controlLockUntil = Mathf.Max(controlLockUntil, Time.time + seconds);
+        }
         public PrototypeWeaponId WeaponId => weapon.Id;
         public string WeaponName => weapon.Name;
         public int Ammo => ammo;
@@ -84,10 +98,20 @@ namespace ChaosArena
             }
             dropQueued = false;
 
-            float targetVelocity = moveInput * moveSpeed;
-            float acceleration = IsGrounded ? groundAcceleration : airAcceleration;
-            float newX = Mathf.MoveTowards(body.linearVelocity.x, targetVelocity, acceleration * Time.fixedDeltaTime);
-            body.linearVelocity = new Vector3(newX, body.linearVelocity.y, 0f);
+            if (InKnockback)
+            {
+                // Momentum is preserved while stunned; only light drag bleeds it off so the fighter still settles.
+                float drag = IsGrounded ? GroundKnockbackDrag : AirKnockbackDrag;
+                float decayed = Mathf.MoveTowards(body.linearVelocity.x, 0f, drag * Time.fixedDeltaTime);
+                body.linearVelocity = new Vector3(decayed, body.linearVelocity.y, 0f);
+            }
+            else
+            {
+                float targetVelocity = moveInput * moveSpeed;
+                float acceleration = IsGrounded ? groundAcceleration : airAcceleration;
+                float newX = Mathf.MoveTowards(body.linearVelocity.x, targetVelocity, acceleration * Time.fixedDeltaTime);
+                body.linearVelocity = new Vector3(newX, body.linearVelocity.y, 0f);
+            }
 
             ApplyAirGravityTuning();
 

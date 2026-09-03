@@ -50,6 +50,9 @@ namespace ChaosArena
             float weight = Mathf.InverseLerp(1.5f, 12f, impulse.magnitude);
             CombatFeel.Impact(weight);
 
+            // Without this the motor cancels the impulse within ~0.09s and the hit looks like it did nothing.
+            GetComponent<FighterMotor>()?.ApplyKnockbackStun(Mathf.Lerp(0.15f, 0.45f, weight));
+
             // A big launch sprays jelly. Small chip damage does not, so the burst stays meaningful.
             if (weight > 0.45f)
             {

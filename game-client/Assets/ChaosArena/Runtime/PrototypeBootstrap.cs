@@ -114,9 +114,10 @@ namespace ChaosArena
             }
 
             AssertGeometricBodies();
+            AssertKnockbackSurvivesMovement();
             AssertBotCountRoster();
             AssertFreeForAllElimination();
-            Debug.Log("CHAOS_ARENA_0110_ASSERTIONS_PASS: translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
+            Debug.Log("CHAOS_ARENA_0111_ASSERTIONS_PASS: knockback stun, translucent jelly bodies, weapon mounts, pickups, platforms, bot roster, elimination, winner, and rematch reset verified.");
         }
 
         /// <summary>Every fighter must carry a real solid body mesh, including the generated tetrahedron.</summary>
@@ -135,12 +136,6 @@ namespace ChaosArena
                 if (fighter.transform.Find("Visual Root/Eye") == null)
                 {
                     throw new System.InvalidOperationException("Fighter is missing its facing eye.");
-                }
-
-                Transform frame = fighter.transform.Find("Visual Root/Edge Frame");
-                if (frame == null || frame.childCount < 4)
-                {
-                    throw new System.InvalidOperationException("Fighter is missing its neon edge frame.");
                 }
 
                 if (fighter.transform.Find("Visual Root/Weapon Mount") == null)
@@ -166,6 +161,18 @@ namespace ChaosArena
                 throw new System.InvalidOperationException("Generated tetrahedron mesh is malformed.");
             }
             Destroy(probe);
+        }
+
+        /// <summary>
+        /// The motor rewrites horizontal velocity every physics step, so a knockback only survives if the
+        /// control lock engages. Until 0.1.11 it did not, and grounded fighters shrugged off most hits.
+        /// </summary>
+        private void AssertKnockbackSurvivesMovement()
+        {
+            FighterMotor motor = player.GetComponent<FighterMotor>();
+            if (motor.InKnockback) throw new System.InvalidOperationException("Fighter should start free of knockback stun.");
+            motor.ApplyKnockbackStun(0.3f);
+            if (!motor.InKnockback) throw new System.InvalidOperationException("Knockback stun failed to engage.");
         }
 
         /// <summary>Bot count must drive who actually takes part in the match.</summary>
@@ -469,12 +476,6 @@ namespace ChaosArena
             Renderer bodyRenderer = bodyObject.GetComponent<Renderer>();
             PrototypeMaterials.AssignJelly(bodyRenderer, tint);
 
-            // Glowing wireframe traced over the solid so the shape reads as lit hardware, not a grey block.
-            GameObject frameObject = new("Edge Frame");
-            frameObject.transform.SetParent(root, false);
-            frameObject.transform.localScale = bodyObject.transform.localScale * 1.03f;
-            ProceduralShapes.CreateEdgeFrame(shape, frameObject.transform, Color.Lerp(tint, Color.white, 0.12f));
-
             GameObject eyeObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             eyeObject.name = "Eye";
             eyeObject.transform.SetParent(root, false);
@@ -534,7 +535,7 @@ namespace ChaosArena
             hudStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
             resultStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
 
-            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.10 — TRANSLUCENT JELLY", titleStyle);
+            GUI.Label(new Rect(0f, 12f, Screen.width, 30f), "PROTOTYPE 0.1.11 — KNOCKBACK FIX", titleStyle);
 
             DrawFighterPanel(player, 24f, 52f);
             for (int i = 1; i < roster.Count; i++)
