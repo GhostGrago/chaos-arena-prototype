@@ -4,7 +4,8 @@ Updated: 2026-09-01
 
 ## P0 — Current
 
-- Playtest Prototype 0.1.11: judge whether hitstun length feels right and whether carbine knockback now reads at full health.
+- Prototype 0.1.11 passed hands-on verification and is published as a public Release for external playtesting.
+- Collect external feedback on impact feel, camera comfort, preferred bot count and any readability problems.
 - Re-test balance from scratch: the new arena invalidates the 0.1.4/0.1.5 weapon and ring-out conclusions.
 - Record feedback on hitstop length, camera shake, rim light readability and parallax strength.
 - Convert concrete feedback into tuning or bug-fix tasks.
